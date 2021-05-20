@@ -15,12 +15,20 @@ public:
     SubMap(int max_stored_pcl_count = 3);
 
     void init();
-    void addFrame(PointCloudT frame, Eigen::Matrix4d t_f2sm, Eigen::Matrix4d t_frame_odom);
+
+    void addFrame(PointCloudT frame, 
+        Eigen::Matrix4d t_f2sm, 
+        Eigen::Matrix4d t_frame_odom);
+
     bool hasEnoughFrame();
+
     double match( PointCloudT frame, 
-        Eigen::Matrix4d init_guess, 
+        const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& t_match_result);
+
     PointCloudT::Ptr getSubmapPoints();
+
+    Eigen::Matrix4d getRelativeTfGuess(const Eigen::Matrix4d& current_odom);
 
     typedef std::shared_ptr<SubMap> Ptr;
 

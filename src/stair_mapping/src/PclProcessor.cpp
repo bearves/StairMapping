@@ -48,7 +48,7 @@ namespace stair_mapping
         submap_out_cloud2.header.stamp = ros::Time::now();
         submap_pub_.publish(submap_out_cloud2);
 
-        ros::Duration d(0.5);
+        ros::Duration d(0.3);
         d.sleep();
     }
 
@@ -68,7 +68,9 @@ namespace stair_mapping
         auto ori = odom.pose.pose.orientation;
         Translation3d t(pos.x, pos.y, pos.z);
         Quaterniond q(ori.w, ori.x, ori.y, ori.z);
-        Eigen::Transform<double, 3, Affine> pose = t*q;
+        // since we have corrected rotation using IMU, we ignore the rotation in odom
+        Quaterniond q_corrected(1, 0, 0, 0);
+        Affine3d pose = t*q_corrected;
 
         return pose.matrix();
     }
@@ -111,7 +113,7 @@ namespace stair_mapping
         double score = 1e8;
         double SUCCESS_SCORE = 10;
         Matrix4d t_frame_odom = current_odom_mat_;
-        Matrix4d t_guess = Matrix4d::Identity();
+        Matrix4d t_guess = last_sm->getRelativeTfGuess(t_frame_odom);
         Matrix4d t_frame_to_last_map = t_guess;
 
         std::cout << "Current Odom\n" << t_frame_odom << std::endl;

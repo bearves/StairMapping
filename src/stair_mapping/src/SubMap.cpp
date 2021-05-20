@@ -18,7 +18,9 @@ namespace stair_mapping
         T_odom_.clear();
     }
 
-    void SubMap::addFrame(PointCloudT frame, Eigen::Matrix4d t_f2sm, Eigen::Matrix4d t_frame_odom)
+    void SubMap::addFrame(PointCloudT frame, 
+        Eigen::Matrix4d t_f2sm, 
+        Eigen::Matrix4d t_frame_odom)
     {
         frames_.push_back(frame);
         T_f2sm_.push_back(t_f2sm);
@@ -51,7 +53,9 @@ namespace stair_mapping
         *p_submap_points_ = *p_submap_ds;
     }
 
-    double SubMap::match(PointCloudT frame, Eigen::Matrix4d init_guess, Eigen::Matrix4d& t_match_result)
+    double SubMap::match(PointCloudT frame, 
+        const Eigen::Matrix4d& init_guess, 
+        Eigen::Matrix4d& t_match_result)
     {
         int point_counts = frame.width * frame.height;
         
@@ -67,10 +71,29 @@ namespace stair_mapping
         }
         else
         {
-            t_match_result = Eigen::Matrix4d::Identity();
+            t_match_result = init_guess;
             // TODO: ICP/NDT match here
             return 0; // best score
         }
+    }
+
+    Eigen::Matrix4d SubMap::getRelativeTfGuess(const Eigen::Matrix4d& current_odom)
+    {
+        using namespace Eigen;
+        // no frames in this submap yet
+        if (current_count_ <= 0)
+        {
+            return Matrix4d::Identity();
+        }
+        // get the last frame's T_f2sm and T_odom of this submap
+        Matrix4d T_f2sm_last = T_f2sm_[current_count_ - 1];
+        Matrix4d odom_last = T_odom_[current_count_ - 1];
+        Affine3d tm_last(odom_last);
+
+        // get the transform of the odoms between last frame and current frame
+        Matrix4d T_o2o = current_odom * tm_last.inverse().matrix() ;
+        // get the transform from submap's origin to this frame
+        return T_o2o * T_f2sm_last;
     }
 
     PointCloudT::Ptr SubMap::getSubmapPoints()
