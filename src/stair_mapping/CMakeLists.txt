@@ -156,7 +156,7 @@ add_definitions(${EIGEN_DEFINITIONS})
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(img_process_node src/img_process_node.cpp src/ImageProcessor.cpp)
-add_executable(pcl_process_node src/pcl_process_node.cpp src/PclProcessor.cpp)
+add_executable(pcl_process_node src/pcl_process_node.cpp src/PclProcessor.cpp src/SubMap.cpp src/GlobalMap.cpp)
 add_executable(clip_pcl_data_node src/clip_pcl_data_node.cpp)
 add_executable(robot_tf_broadcast_node src/robot_tf_broadcast_node.cpp)
 
