@@ -16,6 +16,7 @@ namespace stair_mapping
         submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
         //height_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("height_map_pcl", 1);
         //cost_map_pub_ = node.advertise<nav_msgs::OccupancyGrid>("terrain_cost_map", 1);
+        odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &PclProcessor::odomMsgCallback, this);
         pcl_sub_ = node.subscribe("transformed_points", 1, &PclProcessor::pclMsgCallback, this);
     }
 
@@ -49,6 +50,27 @@ namespace stair_mapping
 
         ros::Duration d(0.5);
         d.sleep();
+    }
+
+    void PclProcessor::odomMsgCallback(const nav_msgs::OdometryConstPtr &msg)
+    {
+        current_odom_mat_ = getPoseMatrix(*msg);
+    }
+
+    Eigen::Matrix4d PclProcessor::getPoseMatrix(const nav_msgs::Odometry &odom)
+    {
+        using namespace Eigen;
+
+        // TODO: this is a bug of the state publisher since
+        // the position data is wrongly published in the twist field
+        //auto pos = odom.pose.pose.position;
+        auto pos = odom.twist.twist.linear;
+        auto ori = odom.pose.pose.orientation;
+        Translation3d t(pos.x, pos.y, pos.z);
+        Quaterniond q(ori.w, ori.x, ori.y, ori.z);
+        Eigen::Transform<double, 3, Affine> pose = t*q;
+
+        return pose.matrix();
     }
 
     void PclProcessor::preProcess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud)
@@ -88,11 +110,15 @@ namespace stair_mapping
         // match current frame to the last submap
         double score = 1e8;
         double SUCCESS_SCORE = 10;
-        Matrix4d t_frame_to_last_map = Matrix4d::Identity();
+        Matrix4d t_frame_odom = current_odom_mat_;
+        Matrix4d t_guess = Matrix4d::Identity();
+        Matrix4d t_frame_to_last_map = t_guess;
+
+        std::cout << "Current Odom\n" << t_frame_odom << std::endl;
 
         try
         {
-            score = last_sm->match(*p_in_cloud, t_frame_to_last_map);
+            score = last_sm->match(*p_in_cloud, t_guess, t_frame_to_last_map);
         }
         catch (std::runtime_error &ex)
         {
@@ -111,7 +137,7 @@ namespace stair_mapping
 
                 SubMap::Ptr p_sm(new SubMap);
                 p_sm->init();
-                p_sm->addFrame(*p_in_cloud, Matrix4d::Identity());
+                p_sm->addFrame(*p_in_cloud, Matrix4d::Identity(), t_frame_odom);
                 // match to last submap if exists, record transform Ti
                 global_map_.addNewSubmap(p_sm, t_frame_to_last_map);
                 current_sm = p_sm;
@@ -119,7 +145,7 @@ namespace stair_mapping
             else
             {
                 // add current pcl to current submap
-                last_sm->addFrame(*p_in_cloud, t_frame_to_last_map);
+                last_sm->addFrame(*p_in_cloud, t_frame_to_last_map, t_frame_odom);
                 current_sm = last_sm;
             }
         }

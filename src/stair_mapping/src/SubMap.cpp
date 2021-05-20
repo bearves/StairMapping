@@ -15,12 +15,14 @@ namespace stair_mapping
         current_count_ = 0;
         T_f2sm_.clear();
         frames_.clear();
+        T_odom_.clear();
     }
 
-    void SubMap::addFrame(PointCloudT frame, Eigen::Matrix4d t_f2sm)
+    void SubMap::addFrame(PointCloudT frame, Eigen::Matrix4d t_f2sm, Eigen::Matrix4d t_frame_odom)
     {
         frames_.push_back(frame);
         T_f2sm_.push_back(t_f2sm);
+        T_odom_.push_back(t_frame_odom);
         current_count_++;
         updateSubmapPoints();
     }
@@ -49,7 +51,7 @@ namespace stair_mapping
         *p_submap_points_ = *p_submap_ds;
     }
 
-    double SubMap::match(PointCloudT frame, Eigen::Matrix4d& t_match_result)
+    double SubMap::match(PointCloudT frame, Eigen::Matrix4d init_guess, Eigen::Matrix4d& t_match_result)
     {
         int point_counts = frame.width * frame.height;
         
