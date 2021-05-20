@@ -1,0 +1,76 @@
+<robot name="hex_mini">
+	<link name="base_link">
+	</link>
+	<link name="body_link">
+		<inertial>
+			<origin xyz="0 0 0" rpy="0 0 0" />
+			<mass value="15" />
+			<inertia ixx="2" iyy="2" izz="2" ixy="0" ixz="0" iyz="0" />
+		</inertial>
+		<visual>
+			<origin xyz="0 0 0" rpy="0 0 0" />
+			<geometry>
+				<box size="0.5 0.3 0.1" />
+			</geometry>
+		</visual>
+		<collision>
+			<origin xyz="0 0 0" rpy="0 0 0" />
+			<geometry>
+				<box size="0.5 0.3 0.1" />
+			</geometry>
+		</collision>
+	</link>
+	
+	<link name="camera_device_link">
+		<visual>
+			<origin xyz="0 0 0" rpy="0 0 0" />
+			<geometry>
+				<cylinder radius="0.05" length="0.03"/>
+			</geometry>
+		</visual>
+	</link>
+    <link name="camera_depth_optical_frame">
+	</link>
+    <link name="camera_color_optical_frame">
+	</link>
+    <link name="camera_link">
+	</link>
+    <link name="imu">
+	</link>
+
+	<joint name="joint_body_to_base" type="fixed">
+		<origin xyz="0 0 0" rpy="0 0 0" />
+		<parent link="base_link" />
+		<child link="body_link" />
+	</joint>
+
+	<joint name="joint_imu_to_base" type="fixed">
+		<origin xyz="0 0 0" rpy="0 0 4.7124" />
+		<parent link="base_link" />
+		<child link="imu" />
+	</joint>
+
+	<joint name="joint_camera_to_base" type="fixed">
+	    <origin xyz="0.22 0 0.26" rpy="0 2.02 -0.04" />
+		<parent link="base_link" />
+		<child link="camera_device_link" />
+	</joint>
+
+	<joint name="joint_optical_camera_link_to_device" type="fixed">
+	    <origin xyz="0 0 0" rpy="0 0 -1.57" />
+		<parent link="camera_device_link" />
+		<child link="camera_link" />
+	</joint>
+
+    <joint name="joint_depth_to_camera_link" type="fixed">
+	    <origin xyz="0 0 0" rpy="0 0 0" />
+		<parent link="camera_link" />
+		<child link="camera_depth_optical_frame" />
+	</joint>
+
+    <joint name="joint_color_to_camera_link" type="fixed">
+	    <origin xyz="0 0 0" rpy="0 0 0" />
+		<parent link="camera_link" />
+		<child link="camera_color_optical_frame" />
+	</joint>
+</robot>
