@@ -48,8 +48,6 @@ namespace stair_mapping
         submap_out_cloud2.header.stamp = ros::Time::now();
         submap_pub_.publish(submap_out_cloud2);
 
-        ros::Duration d(0.3);
-        d.sleep();
     }
 
     void PclProcessor::odomMsgCallback(const nav_msgs::OdometryConstPtr &msg)
@@ -83,7 +81,7 @@ namespace stair_mapping
 
         // downsampling
         PointCloudT::Ptr p_cloud_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.01);
+        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.02);
         ROS_INFO("After downsample size: %d -> %d", sizes[0], sizes[1]);
 
         p_out_cloud = p_cloud_ds;
@@ -115,8 +113,6 @@ namespace stair_mapping
         Matrix4d t_frame_odom = current_odom_mat_;
         Matrix4d t_guess = last_sm->getRelativeTfGuess(t_frame_odom);
         Matrix4d t_frame_to_last_map = t_guess;
-
-        std::cout << "Current Odom\n" << t_frame_odom << std::endl;
 
         try
         {

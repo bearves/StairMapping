@@ -41,6 +41,12 @@ private:
     PointCloudT::Ptr p_submap_points_;
 
     void updateSubmapPoints();
+
+    double matchIcp(
+        const PointCloudT::Ptr& input_cloud, 
+        const PointCloudT::Ptr& target_cloud, 
+        const Eigen::Matrix4d& init_guess, 
+        Eigen::Matrix4d& transform_result);
 };
 
 

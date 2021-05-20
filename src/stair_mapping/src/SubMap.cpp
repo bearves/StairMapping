@@ -1,5 +1,7 @@
 #include "SubMap.h"
 #include <exception>
+#include <pcl/registration/ndt.h>
+#include <pcl/registration/icp.h>
 
 namespace stair_mapping
 {
@@ -49,7 +51,7 @@ namespace stair_mapping
         }
         // downsample submap
         PointCloudT::Ptr p_submap_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_all_points, p_submap_ds, 0.01);
+        Eigen::Vector2i sizes = PreProcessor::downSample(p_all_points, p_submap_ds, 0.02);
         *p_submap_points_ = *p_submap_ds;
     }
 
@@ -73,8 +75,25 @@ namespace stair_mapping
         {
             t_match_result = init_guess;
             // TODO: ICP/NDT match here
+            double score = matchIcp(frame.makeShared(), p_submap_points_, init_guess, t_match_result);
+            std::cout << "Score:" << score << std::endl;
+            std::cout << "Init guess:\n" << init_guess << std::endl;
+            std::cout << "NDT registration result:\n" << t_match_result << std::endl;
+
+            t_match_result = init_guess;
             return 0; // best score
         }
+    }
+
+    double SubMap::matchIcp(
+        const PointCloudT::Ptr& input_cloud, 
+        const PointCloudT::Ptr& target_cloud, 
+        const Eigen::Matrix4d& init_guess, 
+        Eigen::Matrix4d& transform_result)
+    {
+        pcl::IterativeClosestPoint<PointT, PointT> icp;
+
+        return 0;
     }
 
     Eigen::Matrix4d SubMap::getRelativeTfGuess(const Eigen::Matrix4d& current_odom)
