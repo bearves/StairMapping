@@ -10,7 +10,8 @@ class GlobalMap
 public:
     GlobalMap();
 
-    SubMap::Ptr getLastMap();
+    SubMap::Ptr getLastSubMap();
+    Eigen::Matrix4d getLastSubMapTf();
 
     int submapCount();
 
@@ -23,6 +24,7 @@ public:
 private:
     std::vector<SubMap::Ptr> submaps_;
     std::vector<Eigen::Matrix4d> T_m2m_;
+    std::vector<Eigen::Matrix4d> T_m2gm_raw_;
 
     PointCloudT::Ptr p_global_map_points_;
 };

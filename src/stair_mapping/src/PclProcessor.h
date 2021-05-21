@@ -2,6 +2,10 @@
 
 #include <ros/ros.h>
 #include <PointType.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_eigen/tf2_eigen.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Odometry.h>
@@ -25,6 +29,7 @@ namespace stair_mapping
         ros::Publisher global_map_pub_;
         ros::Publisher height_map_pub_;
         ros::Publisher cost_map_pub_;
+        tf2_ros::TransformBroadcaster br_;
 
         std::thread th_;        
 
@@ -41,6 +46,7 @@ namespace stair_mapping
         void preProcess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
         void submapMatch(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
         void buildMap();
+        void publishMapTf();
         Eigen::Matrix4d getPoseMatrix(const nav_msgs::Odometry &odom);
     };
 }

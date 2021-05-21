@@ -12,7 +12,7 @@ namespace stair_mapping
 class SubMap
 {
 public:
-    SubMap(int max_stored_pcl_count = 3);
+    SubMap(int max_stored_pcl_count = 8);
 
     void init();
 

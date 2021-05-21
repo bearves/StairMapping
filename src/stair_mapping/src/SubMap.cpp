@@ -77,9 +77,10 @@ namespace stair_mapping
             std::cout << "Score:" << score << std::endl;
             std::cout << "Init guess:\n" << init_guess << std::endl;
             std::cout << "Registration result:\n" << t_match_result << std::endl;
+            //t_match_result.block<3,3>(0, 0) = Eigen::Matrix3d::Identity();
 
-            t_match_result = init_guess;
-            return 0; // best score
+            //t_match_result = init_guess;
+            return score; // best score
         }
     }
 
@@ -92,14 +93,14 @@ namespace stair_mapping
         // crop
         PointCloudT::Ptr p_input_cloud_cr(new PointCloudT);
         PointCloudT::Ptr p_target_cloud_cr(new PointCloudT);
-        PreProcessor::crop(input_cloud, p_input_cloud_cr, Eigen::Vector3f(0, -0.35, -2), Eigen::Vector3f(1.6, 0.35, 3));
-        PreProcessor::crop(target_cloud, p_target_cloud_cr, Eigen::Vector3f(0, -0.35, -2), Eigen::Vector3f(1.6, 0.35, 3));
+        PreProcessor::crop(input_cloud, p_input_cloud_cr, Eigen::Vector3f(0, -0.35, -2), Eigen::Vector3f(2.3, 0.35, 3));
+        PreProcessor::crop(target_cloud, p_target_cloud_cr, Eigen::Vector3f(0, -0.35, -2), Eigen::Vector3f(2.3, 0.35, 3));
 
         pcl::IterativeClosestPoint<PointT, PointT> icp;
 
         PointCloudT::Ptr icp_result_cloud(new PointCloudT);
-        icp.setMaximumIterations(100);
-        icp.setMaxCorrespondenceDistance(0.2);
+        icp.setMaximumIterations(40);
+        icp.setMaxCorrespondenceDistance(0.1);
         
         icp.setInputSource(p_input_cloud_cr);
         icp.setInputTarget(p_target_cloud_cr);
@@ -111,7 +112,6 @@ namespace stair_mapping
 
         if (icp.hasConverged())
         {
-            std::cout << "\nICP has converged, score is " << icp.getFitnessScore() << std::endl;
             transform_result = icp.getFinalTransformation().cast<double>();
         }
         else

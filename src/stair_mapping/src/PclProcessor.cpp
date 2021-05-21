@@ -82,7 +82,7 @@ namespace stair_mapping
 
         // downsampling
         PointCloudT::Ptr p_cloud_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.02);
+        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.015);
         ROS_INFO("After downsample size: %d -> %d", sizes[0], sizes[1]);
 
         p_out_cloud = p_cloud_ds;
@@ -103,14 +103,14 @@ namespace stair_mapping
             global_map_.addNewSubmap(p_sm, Matrix4d::Identity());
         }
 
-        SubMap::Ptr last_sm = global_map_.getLastMap();
+        SubMap::Ptr last_sm = global_map_.getLastSubMap();
         SubMap::Ptr current_sm;
 
         if (last_sm == nullptr) return;
 
         // match current frame to the last submap
         double score = 1e8;
-        double SUCCESS_SCORE = 10;
+        double SUCCESS_SCORE = 2;
         Matrix4d t_frame_odom = current_odom_mat_;
         Matrix4d t_guess = last_sm->getRelativeTfGuess(t_frame_odom);
         Matrix4d t_frame_to_last_map = t_guess;
@@ -174,9 +174,24 @@ namespace stair_mapping
         global_map_.updateGlobalMapPoints();
         const PointCloudT::Ptr p_global_points = global_map_.getGlobalMapPoints();
         pcl::toROSMsg(*p_global_points, global_map_out_cloud2);
-        global_map_out_cloud2.header.frame_id = "base_world";
+        global_map_out_cloud2.header.frame_id = "map";
         global_map_out_cloud2.header.stamp = ros::Time::now();
         global_map_pub_.publish(global_map_out_cloud2);
+        publishMapTf();
+    }
+
+    void PclProcessor::publishMapTf()
+    {
+        geometry_msgs::TransformStamped transformStamped;
+
+        //transformStamped.header.seq = msg->header.seq;
+        transformStamped = tf2::eigenToTransform(Eigen::Affine3d(global_map_.getLastSubMapTf()));
+        transformStamped.header.stamp = ros::Time::now();
+        transformStamped.header.frame_id = "map";
+        transformStamped.child_frame_id = "base_world";
+
+        //ROS_INFO("Robot tf: %f %f %f", -p / M_PI * 180, r / M_PI * 180, y / M_PI * 180);
+        br_.sendTransform(transformStamped);
     }
 
     void PclProcessor::doProcess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud, 
@@ -188,7 +203,7 @@ namespace stair_mapping
 
         // downsampling
         PointCloudT::Ptr p_cloud_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.01);
+        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.04);
         ROS_INFO("After downsample size: %d -> %d", sizes[0], sizes[1]);
 
         // convert to height map
