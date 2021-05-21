@@ -14,6 +14,7 @@ namespace stair_mapping
     {
         preprocess_pub_ = node.advertise<sensor_msgs::PointCloud2>("preprocessed_points", 1);
         submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
+        global_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_points", 1);
         //height_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("height_map_pcl", 1);
         //cost_map_pub_ = node.advertise<nav_msgs::OccupancyGrid>("terrain_cost_map", 1);
         odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &PclProcessor::odomMsgCallback, this);
@@ -153,6 +154,30 @@ namespace stair_mapping
         p_out_cloud = current_sm->getSubmapPoints();
     }
 
+    void PclProcessor::startMapServer()
+    {
+        th_ = std::thread([this](){
+            ROS_INFO("Map server started");
+            ros::Rate map_publish_rate(5);
+            while(ros::ok())
+            {
+                buildMap();
+                map_publish_rate.sleep();
+            }
+        });
+    }
+
+    void PclProcessor::buildMap()
+    {
+        sensor_msgs::PointCloud2 global_map_out_cloud2;
+        // concat all submaps together 
+        global_map_.updateGlobalMapPoints();
+        const PointCloudT::Ptr p_global_points = global_map_.getGlobalMapPoints();
+        pcl::toROSMsg(*p_global_points, global_map_out_cloud2);
+        global_map_out_cloud2.header.frame_id = "base_world";
+        global_map_out_cloud2.header.stamp = ros::Time::now();
+        global_map_pub_.publish(global_map_out_cloud2);
+    }
 
     void PclProcessor::doProcess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud, 
                        Eigen::MatrixXd& height_map, Eigen::MatrixXd& cost_map)

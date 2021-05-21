@@ -6,6 +6,7 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Odometry.h>
 #include <eigen3/Eigen/Dense>
+#include <thread>
 #include "GlobalMap.h"
 
 namespace stair_mapping 
@@ -14,14 +15,18 @@ namespace stair_mapping
     {
     public:
         PclProcessor(ros::NodeHandle& node);
+        void startMapServer();
     private:
         ros::Subscriber pcl_sub_;
         ros::Subscriber odom_sub_;
 
         ros::Publisher preprocess_pub_;
         ros::Publisher submap_pub_;
+        ros::Publisher global_map_pub_;
         ros::Publisher height_map_pub_;
         ros::Publisher cost_map_pub_;
+
+        std::thread th_;        
 
         GlobalMap global_map_;
         Eigen::Matrix4d current_odom_mat_;
@@ -35,6 +40,7 @@ namespace stair_mapping
 
         void preProcess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
         void submapMatch(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
+        void buildMap();
         Eigen::Matrix4d getPoseMatrix(const nav_msgs::Odometry &odom);
     };
 }

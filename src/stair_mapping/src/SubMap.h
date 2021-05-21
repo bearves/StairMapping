@@ -26,7 +26,7 @@ public:
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& t_match_result);
 
-    PointCloudT::Ptr getSubmapPoints();
+    const PointCloudT::Ptr getSubmapPoints();
 
     Eigen::Matrix4d getRelativeTfGuess(const Eigen::Matrix4d& current_odom);
 

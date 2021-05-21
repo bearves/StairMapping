@@ -2,6 +2,7 @@
 #include <exception>
 #include <pcl/registration/ndt.h>
 #include <pcl/registration/icp.h>
+#include <pcl/console/time.h>
 
 namespace stair_mapping
 {
@@ -49,10 +50,7 @@ namespace stair_mapping
             pcl::transformPointCloud(frames_[i], transformed_frame, T_f2sm_[i]);
             p_all_points->operator+=( transformed_frame );
         }
-        // downsample submap
-        PointCloudT::Ptr p_submap_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_all_points, p_submap_ds, 0.02);
-        *p_submap_points_ = *p_submap_ds;
+        *p_submap_points_ = *p_all_points;
     }
 
     double SubMap::match(PointCloudT frame, 
@@ -78,7 +76,7 @@ namespace stair_mapping
             double score = matchIcp(frame.makeShared(), p_submap_points_, init_guess, t_match_result);
             std::cout << "Score:" << score << std::endl;
             std::cout << "Init guess:\n" << init_guess << std::endl;
-            std::cout << "NDT registration result:\n" << t_match_result << std::endl;
+            std::cout << "Registration result:\n" << t_match_result << std::endl;
 
             t_match_result = init_guess;
             return 0; // best score
@@ -91,9 +89,37 @@ namespace stair_mapping
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& transform_result)
     {
+        // crop
+        PointCloudT::Ptr p_input_cloud_cr(new PointCloudT);
+        PointCloudT::Ptr p_target_cloud_cr(new PointCloudT);
+        PreProcessor::crop(input_cloud, p_input_cloud_cr, Eigen::Vector3f(0, -0.35, -2), Eigen::Vector3f(1.6, 0.35, 3));
+        PreProcessor::crop(target_cloud, p_target_cloud_cr, Eigen::Vector3f(0, -0.35, -2), Eigen::Vector3f(1.6, 0.35, 3));
+
         pcl::IterativeClosestPoint<PointT, PointT> icp;
 
-        return 0;
+        PointCloudT::Ptr icp_result_cloud(new PointCloudT);
+        icp.setMaximumIterations(100);
+        icp.setMaxCorrespondenceDistance(0.2);
+        
+        icp.setInputSource(p_input_cloud_cr);
+        icp.setInputTarget(p_target_cloud_cr);
+
+        pcl::console::TicToc time;
+        time.tic();
+        icp.align(*icp_result_cloud, init_guess.cast<float>());
+        std::cout << "Applied ICP iteration(s) in " << time.toc() << " ms" << std::endl;
+
+        if (icp.hasConverged())
+        {
+            std::cout << "\nICP has converged, score is " << icp.getFitnessScore() << std::endl;
+            transform_result = icp.getFinalTransformation().cast<double>();
+        }
+        else
+        {
+            std::cout << "\nICP has not converged.\n";
+            transform_result = init_guess;
+        }
+        return icp.getFitnessScore();
     }
 
     Eigen::Matrix4d SubMap::getRelativeTfGuess(const Eigen::Matrix4d& current_odom)
@@ -115,7 +141,7 @@ namespace stair_mapping
         return T_o2o * T_f2sm_last;
     }
 
-    PointCloudT::Ptr SubMap::getSubmapPoints()
+    const PointCloudT::Ptr SubMap::getSubmapPoints()
     {
         return this->p_submap_points_;
     }
