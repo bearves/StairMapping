@@ -13,11 +13,11 @@ public:
     SubMap::Ptr getLastSubMap();
     Eigen::Matrix4d getLastSubMapTf();
 
-    int submapCount();
+    std::size_t submapCount();
 
     void addNewSubmap(SubMap::Ptr sm, Eigen::Matrix4d transform);
     
-    void updateGlobalMapPoints();
+    std::size_t updateGlobalMapPoints();
 
     const PointCloudT::Ptr getGlobalMapPoints();
 

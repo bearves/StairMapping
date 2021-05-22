@@ -7,7 +7,7 @@ namespace stair_mapping
     {
     }
 
-    int GlobalMap::submapCount()
+    std::size_t GlobalMap::submapCount()
     {
         return submaps_.size();
     }
@@ -45,7 +45,7 @@ namespace stair_mapping
             return T_m2gm_raw_[T_m2gm_raw_.size() - 1];
     }
 
-    void GlobalMap::updateGlobalMapPoints()
+    std::size_t GlobalMap::updateGlobalMapPoints()
     {
         using namespace Eigen;
 
@@ -59,6 +59,7 @@ namespace stair_mapping
             p_all_points->operator+=( transformed_frame );
         }
         *p_global_map_points_ = *p_all_points;
+        return submap_cnt;
     }
 
     const PointCloudT::Ptr GlobalMap::getGlobalMapPoints()

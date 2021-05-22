@@ -136,7 +136,7 @@ namespace stair_mapping
                 out_image, 
                 label_text,
                 cv::Point(point.x+3, point.y-3), 
-                CV_FONT_HERSHEY_SIMPLEX, 
+                cv::FONT_HERSHEY_SIMPLEX, 
                 1,  // scale
                 cv::Scalar(0, 240, 240), // color
                 2,  // thickness

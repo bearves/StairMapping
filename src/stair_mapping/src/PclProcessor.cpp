@@ -82,7 +82,7 @@ namespace stair_mapping
 
         // downsampling
         PointCloudT::Ptr p_cloud_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.015);
+        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.012);
         ROS_INFO("After downsample size: %d -> %d", sizes[0], sizes[1]);
 
         p_out_cloud = p_cloud_ds;
@@ -114,6 +114,14 @@ namespace stair_mapping
         Matrix4d t_frame_odom = current_odom_mat_;
         Matrix4d t_guess = last_sm->getRelativeTfGuess(t_frame_odom);
         Matrix4d t_frame_to_last_map = t_guess;
+
+        // reject frames when robot is not moving at all
+        Vector3d translation_guess = Affine3d(t_guess).translation();
+        if (!last_sm->isEmpty() && translation_guess.norm() < 0.01)
+        {
+            ROS_WARN("Frame too close: %f", translation_guess.norm());
+            return;
+        }
 
         try
         {
@@ -171,13 +179,15 @@ namespace stair_mapping
     {
         sensor_msgs::PointCloud2 global_map_out_cloud2;
         // concat all submaps together 
-        global_map_.updateGlobalMapPoints();
+        auto submap_cnt = global_map_.updateGlobalMapPoints();
         const PointCloudT::Ptr p_global_points = global_map_.getGlobalMapPoints();
         pcl::toROSMsg(*p_global_points, global_map_out_cloud2);
         global_map_out_cloud2.header.frame_id = "map";
         global_map_out_cloud2.header.stamp = ros::Time::now();
         global_map_pub_.publish(global_map_out_cloud2);
         publishMapTf();
+
+        ROS_INFO("Submap count: %ld", submap_cnt);
     }
 
     void PclProcessor::publishMapTf()

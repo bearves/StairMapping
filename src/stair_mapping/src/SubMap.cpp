@@ -3,6 +3,7 @@
 #include <pcl/registration/ndt.h>
 #include <pcl/registration/icp.h>
 #include <pcl/console/time.h>
+#include <pcl/common/common.h>
 
 namespace stair_mapping
 {
@@ -35,6 +36,11 @@ namespace stair_mapping
     bool SubMap::hasEnoughFrame()
     {
         return current_count_ >= max_stored_frame_count_;
+    }
+
+    bool SubMap::isEmpty()
+    {
+        return current_count_ <= 0;
     }
 
     void SubMap::updateSubmapPoints()
@@ -90,11 +96,24 @@ namespace stair_mapping
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& transform_result)
     {
-        // crop
+        // since the stairs are very similar structures
+        // crop on Z axis to avoid the stair-jumping mismatch
         PointCloudT::Ptr p_input_cloud_cr(new PointCloudT);
         PointCloudT::Ptr p_target_cloud_cr(new PointCloudT);
-        PreProcessor::crop(input_cloud, p_input_cloud_cr, Eigen::Vector3f(0, -0.35, -2), Eigen::Vector3f(2.3, 0.35, 3));
-        PreProcessor::crop(target_cloud, p_target_cloud_cr, Eigen::Vector3f(0, -0.35, -2), Eigen::Vector3f(2.3, 0.35, 3));
+        PointT min_input, max_input, min_target, max_target;
+        pcl::getMinMax3D(*input_cloud, min_input, max_input);
+        pcl::getMinMax3D(*target_cloud, min_target, max_target);
+
+        double loose = 0.1;
+        double z_crop_max = std::min(max_input.z, max_target.z) + loose;
+        double z_crop_min = std::max(min_input.z, min_target.z) - loose;
+
+        PreProcessor::crop(input_cloud, p_input_cloud_cr, 
+            Eigen::Vector3f(0, -0.35, z_crop_min), 
+            Eigen::Vector3f(2.3, 0.35, z_crop_max));
+        PreProcessor::crop(target_cloud, p_target_cloud_cr, 
+            Eigen::Vector3f(0, -0.35, z_crop_min), 
+            Eigen::Vector3f(2.3, 0.35, z_crop_max));
 
         pcl::IterativeClosestPoint<PointT, PointT> icp;
 

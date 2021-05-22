@@ -12,7 +12,7 @@ namespace stair_mapping
 class SubMap
 {
 public:
-    SubMap(int max_stored_pcl_count = 8);
+    SubMap(int max_stored_pcl_count = 4);
 
     void init();
 
@@ -21,6 +21,7 @@ public:
         Eigen::Matrix4d t_frame_odom);
 
     bool hasEnoughFrame();
+    bool isEmpty();
 
     double match( PointCloudT frame, 
         const Eigen::Matrix4d& init_guess, 
