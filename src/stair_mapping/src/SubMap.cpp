@@ -4,9 +4,14 @@
 #include <pcl/registration/icp.h>
 #include <pcl/console/time.h>
 #include <pcl/common/common.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/search/kdtree.h>
 
 namespace stair_mapping
 {
+    typedef pcl::PointXYZINormal PointTN;
+    typedef pcl::PointCloud<PointTN> PointCloudTN;
+
     SubMap::SubMap(int max_stored_pcl_count):
         max_stored_frame_count_(max_stored_pcl_count),
         current_count_(0),
@@ -96,10 +101,15 @@ namespace stair_mapping
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& transform_result)
     {
-        // since the stairs are very similar structures
-        // crop on Z axis to avoid the stair-jumping mismatch
         PointCloudT::Ptr p_input_cloud_cr(new PointCloudT);
         PointCloudT::Ptr p_target_cloud_cr(new PointCloudT);
+        PointCloudN::Ptr p_input_normal_cr(new PointCloudN);
+        PointCloudN::Ptr p_target_normal_cr(new PointCloudN);
+        PointCloudTN::Ptr p_input_tn(new PointCloudTN);
+        PointCloudTN::Ptr p_target_tn(new PointCloudTN);
+
+        // since the stairs are very similar structures
+        // crop on Z axis to avoid the stair-jumping mismatch
         PointT min_input, max_input, min_target, max_target;
         pcl::getMinMax3D(*input_cloud, min_input, max_input);
         pcl::getMinMax3D(*target_cloud, min_target, max_target);
@@ -115,17 +125,24 @@ namespace stair_mapping
             Eigen::Vector3f(0, -0.35, z_crop_min), 
             Eigen::Vector3f(2.3, 0.35, z_crop_max));
 
-        pcl::IterativeClosestPoint<PointT, PointT> icp;
+        pcl::console::TicToc time;
+        time.tic();
+        // compute normal for each clouds
+        getNormal(p_input_cloud_cr, p_input_normal_cr);
+        getNormal(p_target_cloud_cr, p_target_normal_cr);
+        pcl::concatenateFields(*p_input_cloud_cr, *p_input_normal_cr, *p_input_tn);
+        pcl::concatenateFields(*p_target_cloud_cr, *p_target_normal_cr, *p_target_tn);
 
-        PointCloudT::Ptr icp_result_cloud(new PointCloudT);
+        // ICP with normal
+        pcl::IterativeClosestPointWithNormals<PointTN, PointTN> icp;
+
+        PointCloudTN::Ptr icp_result_cloud(new PointCloudTN);
         icp.setMaximumIterations(40);
         icp.setMaxCorrespondenceDistance(0.1);
         
-        icp.setInputSource(p_input_cloud_cr);
-        icp.setInputTarget(p_target_cloud_cr);
+        icp.setInputSource(p_input_tn);
+        icp.setInputTarget(p_target_tn);
 
-        pcl::console::TicToc time;
-        time.tic();
         icp.align(*icp_result_cloud, init_guess.cast<float>());
         std::cout << "Applied ICP iteration(s) in " << time.toc() << " ms" << std::endl;
 
@@ -139,6 +156,19 @@ namespace stair_mapping
             transform_result = init_guess;
         }
         return icp.getFitnessScore();
+    }
+
+    void SubMap::getNormal(
+        const PointCloudT::Ptr& input_cloud,
+        const PointCloudN::Ptr& normal_cloud
+    )
+    {
+        pcl::search::KdTree<PointT>::Ptr p_tree(new pcl::search::KdTree<PointT>);
+        pcl::NormalEstimation<PointT, pcl::Normal> ne;
+        ne.setSearchMethod(p_tree);
+        ne.setInputCloud(input_cloud);
+        ne.setKSearch(6);
+        ne.compute(*normal_cloud);
     }
 
     Eigen::Matrix4d SubMap::getRelativeTfGuess(const Eigen::Matrix4d& current_odom)

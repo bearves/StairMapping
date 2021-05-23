@@ -1,7 +1,6 @@
 #pragma once
 
 #include <ros/ros.h>
-#include <PointType.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2_ros/transform_broadcaster.h>
@@ -11,6 +10,7 @@
 #include <nav_msgs/Odometry.h>
 #include <eigen3/Eigen/Dense>
 #include <thread>
+#include "PointType.h"
 #include "GlobalMap.h"
 
 namespace stair_mapping 

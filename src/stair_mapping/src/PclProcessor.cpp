@@ -4,9 +4,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl/io/pcd_io.h>
 #include <termios.h>
-#include <PointType.h>
-#include <PreProcessor.h>
-#include <HeightMap.h>
+#include "PreProcessor.h"
+#include "HeightMap.h"
 
 namespace stair_mapping
 {
@@ -82,7 +81,7 @@ namespace stair_mapping
 
         // downsampling
         PointCloudT::Ptr p_cloud_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.012);
+        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.02);
         ROS_INFO("After downsample size: %d -> %d", sizes[0], sizes[1]);
 
         p_out_cloud = p_cloud_ds;

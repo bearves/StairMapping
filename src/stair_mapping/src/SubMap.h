@@ -16,20 +16,23 @@ public:
 
     void init();
 
-    void addFrame(PointCloudT frame, 
+    void addFrame(
+        PointCloudT frame, 
         Eigen::Matrix4d t_f2sm, 
         Eigen::Matrix4d t_frame_odom);
 
     bool hasEnoughFrame();
     bool isEmpty();
 
-    double match( PointCloudT frame, 
+    double match( 
+        PointCloudT frame, 
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& t_match_result);
 
     const PointCloudT::Ptr getSubmapPoints();
 
-    Eigen::Matrix4d getRelativeTfGuess(const Eigen::Matrix4d& current_odom);
+    Eigen::Matrix4d getRelativeTfGuess(
+        const Eigen::Matrix4d& current_odom);
 
     typedef std::shared_ptr<SubMap> Ptr;
 
@@ -48,6 +51,11 @@ private:
         const PointCloudT::Ptr& target_cloud, 
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& transform_result);
+    
+    void getNormal(
+        const PointCloudT::Ptr& input_cloud,
+        const PointCloudN::Ptr& normal_cloud
+    );
 };
 
 

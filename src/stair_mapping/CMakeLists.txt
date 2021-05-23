@@ -124,22 +124,15 @@ CATKIN_DEPENDS roscpp rospy std_msgs cv_bridge image_transport sensor_msgs tf2 p
 ###########
 ## Build ##
 ###########
-set(HEX_PCL_PROCESS_INCLUDE_DIRS /usr/local/hex_pcl_process/include)
-set(HEX_PCL_PROCESS_LIBRARY_DIRS /usr/local/hex_pcl_process/lib)
-set(HEX_PCL_PROCESS_LIBRARIES hex_pcl_process)
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
-  ${HEX_PCL_PROCESS_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${Eigen3_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
-)
-link_directories(
-  ${HEX_PCL_PROCESS_LIBRARY_DIRS}
 )
 add_definitions(${EIGEN_DEFINITIONS})
 
@@ -157,7 +150,7 @@ add_definitions(${EIGEN_DEFINITIONS})
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(img_process_node src/img_process_node.cpp src/ImageProcessor.cpp)
-add_executable(pcl_process_node src/pcl_process_node.cpp src/PclProcessor.cpp src/SubMap.cpp src/GlobalMap.cpp)
+add_executable(pcl_process_node src/pcl_process_node.cpp src/PclProcessor.cpp src/SubMap.cpp src/GlobalMap.cpp src/PreProcessor.cpp src/HeightMap.cpp)
 add_executable(clip_pcl_data_node src/clip_pcl_data_node.cpp)
 add_executable(robot_tf_broadcast_node src/robot_tf_broadcast_node.cpp)
 
@@ -180,7 +173,6 @@ target_link_libraries(img_process_node
 
 target_link_libraries(pcl_process_node
   ${catkin_LIBRARIES}
-  ${HEX_PCL_PROCESS_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${Eigen3_LIBRARIES}
   ${PCL_LIBRARIES}
@@ -195,7 +187,6 @@ target_link_libraries(clip_pcl_data_node
 
 target_link_libraries(robot_tf_broadcast_node
   ${catkin_LIBRARIES}
-  ${HEX_PCL_PROCESS_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${Eigen3_LIBRARIES}
   ${PCL_LIBRARIES}

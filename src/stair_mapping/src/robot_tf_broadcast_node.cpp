@@ -8,7 +8,6 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <eigen3/Eigen/Dense>
-#include "FindPlane.h"
 #include "pcl_ros/transforms.h"
 #include "pcl/common/transforms.h"
 #include "pcl/conversions.h"

@@ -1,0 +1,38 @@
+#include "PreProcessor.h"
+#include <pcl/common/transforms.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/passthrough.h>
+#include <Eigen/Dense>
+
+Eigen::Vector2i PreProcessor::downSample(const PointCloudT::Ptr p_input_cloud, PointCloudT::Ptr p_output_cloud, double leaf_size)
+{
+    pcl::VoxelGrid<PointT> vg;
+    vg.setInputCloud(p_input_cloud);
+    vg.setLeafSize(leaf_size, leaf_size, leaf_size);
+    vg.filter(*p_output_cloud);
+    int original_size = p_input_cloud->width * p_input_cloud->height;
+    int resultant_size = p_output_cloud->width * p_output_cloud->height;
+    return Eigen::Vector2i(original_size, resultant_size);
+}
+
+void PreProcessor::crop(const PointCloudT::Ptr p_input_cloud, PointCloudT::Ptr p_output_cloud, Eigen::Vector3f min, Eigen::Vector3f max)
+{
+    pcl::PassThrough<PointT> ptx, pty, ptz;
+    PointCloudT::Ptr p_after_x(new PointCloudT);
+    PointCloudT::Ptr p_after_y(new PointCloudT);
+
+    ptx.setInputCloud(p_input_cloud);
+    ptx.setFilterFieldName ("x");
+    ptx.setFilterLimits(min[0], max[0]);
+    ptx.filter(*p_after_x);
+
+    pty.setInputCloud(p_after_x);
+    pty.setFilterFieldName ("y");
+    pty.setFilterLimits(min[1], max[1]);
+    pty.filter(*p_after_y);
+
+    ptz.setInputCloud(p_after_y);
+    ptz.setFilterFieldName ("z");
+    ptz.setFilterLimits(min[2], max[2]);
+    ptz.filter(*p_output_cloud);
+}
