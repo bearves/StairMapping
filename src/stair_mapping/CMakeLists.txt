@@ -24,6 +24,7 @@ find_package(cmake_modules REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL 1.6 REQUIRED)
+find_package(Ceres REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -133,8 +134,13 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${Eigen3_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
+  ${CERES_INCLUDE_DIRS}
 )
 add_definitions(${EIGEN_DEFINITIONS})
+
+link_directories(
+  ${CERES_LINK_DIRS}
+)
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -150,9 +156,9 @@ add_definitions(${EIGEN_DEFINITIONS})
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(img_process_node src/img_process_node.cpp src/ImageProcessor.cpp)
-add_executable(pcl_process_node src/pcl_process_node.cpp src/PclProcessor.cpp src/SubMap.cpp src/GlobalMap.cpp src/PreProcessor.cpp src/HeightMap.cpp)
 add_executable(clip_pcl_data_node src/clip_pcl_data_node.cpp)
 add_executable(robot_tf_broadcast_node src/robot_tf_broadcast_node.cpp)
+add_executable(pcl_process_node src/pcl_process_node.cpp src/PclProcessor.cpp src/SubMap.cpp src/GlobalMap.cpp src/PreProcessor.cpp src/HeightMap.cpp src/PoseGraph.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -176,6 +182,7 @@ target_link_libraries(pcl_process_node
   ${OpenCV_LIBRARIES}
   ${Eigen3_LIBRARIES}
   ${PCL_LIBRARIES}
+  ${CERES_LIBRARIES}
 )
 
 target_link_libraries(clip_pcl_data_node
