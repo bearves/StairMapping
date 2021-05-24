@@ -2,6 +2,7 @@
 #include <exception>
 #include <pcl/registration/ndt.h>
 #include <pcl/registration/icp.h>
+#include <pcl/registration/gicp6d.h>
 #include <pcl/console/time.h>
 #include <pcl/common/common.h>
 #include <pcl/features/normal_3d.h>

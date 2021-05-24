@@ -14,10 +14,12 @@ namespace stair_mapping
 
     void GlobalMap::addNewSubmap(SubMap::Ptr sm, Eigen::Matrix4d transform)
     {
-        // first map
+        // lock since the change of submap number can affect the map building thread
+        build_map_mutex_.lock();
         auto submap_cnt = submapCount();
         if (submap_cnt <= 0) 
         {
+            // first map
             T_m2gm_raw_.push_back(transform);
         }
         else
@@ -27,6 +29,7 @@ namespace stair_mapping
         }
         submaps_.push_back(sm);
         T_m2m_.push_back(transform);
+        build_map_mutex_.unlock();
     }
 
     SubMap::Ptr GlobalMap::getLastSubMap()
@@ -39,10 +42,21 @@ namespace stair_mapping
 
     Eigen::Matrix4d GlobalMap::getLastSubMapTf()
     {
+        Eigen::Matrix4d last_tf;
+
+        build_map_mutex_.lock();
         if (submaps_.size() == 0 )
-            return Eigen::Matrix4d::Identity();
+            last_tf = Eigen::Matrix4d::Identity();
         else
-            return T_m2gm_raw_[T_m2gm_raw_.size() - 1];
+            last_tf = T_m2gm_raw_[T_m2gm_raw_.size() - 1];
+        build_map_mutex_.unlock();
+
+        return last_tf;
+    }
+
+    const PointCloudT::Ptr GlobalMap::getGlobalMapPoints()
+    {
+        return p_global_map_points_;
     }
 
     std::size_t GlobalMap::updateGlobalMapPoints()
@@ -52,18 +66,21 @@ namespace stair_mapping
         PointCloudT transformed_frame;
         PointCloudT::Ptr p_all_points(new PointCloudT);
 
+        build_map_mutex_.lock();
         auto submap_cnt = submapCount();
+        build_map_mutex_.unlock();
+
+        // since only the old data are read and never changed
+        // the map building process is thread safe
         for(int i = 0; i < submap_cnt; i++)
         {
-            pcl::transformPointCloud(*(submaps_[i]->getSubmapPoints()), transformed_frame, T_m2gm_raw_[i]);
+            pcl::transformPointCloud(
+                *(submaps_[i]->getSubmapPoints()), 
+                transformed_frame, 
+                T_m2gm_raw_[i]);
             p_all_points->operator+=( transformed_frame );
         }
         *p_global_map_points_ = *p_all_points;
         return submap_cnt;
-    }
-
-    const PointCloudT::Ptr GlobalMap::getGlobalMapPoints()
-    {
-        return p_global_map_points_;
     }
 }

@@ -12,6 +12,7 @@
 #include <thread>
 #include "PointType.h"
 #include "GlobalMap.h"
+#include <mutex>
 
 namespace stair_mapping 
 {
@@ -32,6 +33,7 @@ namespace stair_mapping
         tf2_ros::TransformBroadcaster br_;
 
         std::thread th_;        
+        std::mutex odom_msg_mtx_;
 
         GlobalMap global_map_;
         Eigen::Matrix4d current_odom_mat_;
@@ -47,6 +49,7 @@ namespace stair_mapping
         void submapMatch(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
         void buildMap();
         void publishMapTf();
+        void publishMap();
         Eigen::Matrix4d getPoseMatrix(const nav_msgs::Odometry &odom);
     };
 }

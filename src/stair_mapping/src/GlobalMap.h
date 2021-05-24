@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <mutex>
 #include "SubMap.h"
 
 namespace stair_mapping
@@ -27,5 +28,7 @@ private:
     std::vector<Eigen::Matrix4d> T_m2gm_raw_;
 
     PointCloudT::Ptr p_global_map_points_;
+
+    std::mutex build_map_mutex_;
 };
 } // namespace stair_mapping

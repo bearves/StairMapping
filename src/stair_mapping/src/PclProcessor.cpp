@@ -52,7 +52,10 @@ namespace stair_mapping
 
     void PclProcessor::odomMsgCallback(const nav_msgs::OdometryConstPtr &msg)
     {
-        current_odom_mat_ = getPoseMatrix(*msg);
+        Eigen::Matrix4d pose_mat = getPoseMatrix(*msg);
+        odom_msg_mtx_.lock();
+        current_odom_mat_ = pose_mat;
+        odom_msg_mtx_.unlock();
     }
 
     Eigen::Matrix4d PclProcessor::getPoseMatrix(const nav_msgs::Odometry &odom)
@@ -110,7 +113,11 @@ namespace stair_mapping
         // match current frame to the last submap
         double score = 1e8;
         double SUCCESS_SCORE = 2;
+
+        odom_msg_mtx_.lock();
         Matrix4d t_frame_odom = current_odom_mat_;
+        odom_msg_mtx_.unlock();
+
         Matrix4d t_guess = last_sm->getRelativeTfGuess(t_frame_odom);
         Matrix4d t_frame_to_last_map = t_guess;
 
@@ -169,6 +176,8 @@ namespace stair_mapping
             while(ros::ok())
             {
                 buildMap();
+                publishMap();
+                publishMapTf();
                 map_publish_rate.sleep();
             }
         });
@@ -176,17 +185,19 @@ namespace stair_mapping
 
     void PclProcessor::buildMap()
     {
-        sensor_msgs::PointCloud2 global_map_out_cloud2;
         // concat all submaps together 
         auto submap_cnt = global_map_.updateGlobalMapPoints();
+        ROS_INFO("Submap count: %ld", submap_cnt);
+    }
+
+    void PclProcessor::publishMap()
+    {
+        sensor_msgs::PointCloud2 global_map_out_cloud2;
         const PointCloudT::Ptr p_global_points = global_map_.getGlobalMapPoints();
         pcl::toROSMsg(*p_global_points, global_map_out_cloud2);
         global_map_out_cloud2.header.frame_id = "map";
         global_map_out_cloud2.header.stamp = ros::Time::now();
         global_map_pub_.publish(global_map_out_cloud2);
-        publishMapTf();
-
-        ROS_INFO("Submap count: %ld", submap_cnt);
     }
 
     void PclProcessor::publishMapTf()
@@ -194,7 +205,8 @@ namespace stair_mapping
         geometry_msgs::TransformStamped transformStamped;
 
         //transformStamped.header.seq = msg->header.seq;
-        transformStamped = tf2::eigenToTransform(Eigen::Affine3d(global_map_.getLastSubMapTf()));
+        Eigen::Affine3d last_tf(global_map_.getLastSubMapTf());
+        transformStamped = tf2::eigenToTransform(last_tf);
         transformStamped.header.stamp = ros::Time::now();
         transformStamped.header.frame_id = "map";
         transformStamped.child_frame_id = "base_world";
