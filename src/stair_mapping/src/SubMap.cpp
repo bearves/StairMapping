@@ -9,8 +9,6 @@
 
 namespace stair_mapping
 {
-    typedef pcl::PointXYZINormal PointTN;
-    typedef pcl::PointCloud<PointTN> PointCloudTN;
 
     SubMap::SubMap(int max_stored_pcl_count):
         max_stored_frame_count_(max_stored_pcl_count),
@@ -101,6 +99,7 @@ namespace stair_mapping
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& transform_result)
     {
+        PointCloudT::Ptr p_input_cloud_init(new PointCloudT);
         PointCloudT::Ptr p_input_cloud_cr(new PointCloudT);
         PointCloudT::Ptr p_target_cloud_cr(new PointCloudT);
         PointCloudN::Ptr p_input_normal_cr(new PointCloudN);
@@ -108,22 +107,29 @@ namespace stair_mapping
         PointCloudTN::Ptr p_input_tn(new PointCloudTN);
         PointCloudTN::Ptr p_target_tn(new PointCloudTN);
 
+        // firstly transform the input cloud with init_guess to 
+        // make the two clouds overlap as much as possible
+        pcl::transformPointCloud(*input_cloud, *p_input_cloud_init, init_guess);
+
         // since the stairs are very similar structures
-        // crop on Z axis to avoid the stair-jumping mismatch
+        // crop on Z and X axis to avoid the stair-jumping mismatch
+        // aka. match this step to the next
         PointT min_input, max_input, min_target, max_target;
-        pcl::getMinMax3D(*input_cloud, min_input, max_input);
+        pcl::getMinMax3D(*p_input_cloud_init, min_input, max_input);
         pcl::getMinMax3D(*target_cloud, min_target, max_target);
 
         double loose = 0.1;
         double z_crop_max = std::min(max_input.z, max_target.z) + loose;
         double z_crop_min = std::max(min_input.z, min_target.z) - loose;
+        double x_crop_max = std::min(max_input.x, max_target.x) + loose;
+        double x_crop_min = std::max(min_input.x, min_target.x) - loose;
 
-        PreProcessor::crop(input_cloud, p_input_cloud_cr, 
-            Eigen::Vector3f(0, -0.35, z_crop_min), 
-            Eigen::Vector3f(2.3, 0.35, z_crop_max));
+        PreProcessor::crop(p_input_cloud_init, p_input_cloud_cr, 
+            Eigen::Vector3f(x_crop_min, -0.35, z_crop_min), 
+            Eigen::Vector3f(x_crop_max, 0.35, z_crop_max));
         PreProcessor::crop(target_cloud, p_target_cloud_cr, 
-            Eigen::Vector3f(0, -0.35, z_crop_min), 
-            Eigen::Vector3f(2.3, 0.35, z_crop_max));
+            Eigen::Vector3f(x_crop_min, -0.35, z_crop_min), 
+            Eigen::Vector3f(x_crop_max, 0.35, z_crop_max));
 
         pcl::console::TicToc time;
         time.tic();
@@ -143,12 +149,12 @@ namespace stair_mapping
         icp.setInputSource(p_input_tn);
         icp.setInputTarget(p_target_tn);
 
-        icp.align(*icp_result_cloud, init_guess.cast<float>());
+        icp.align(*icp_result_cloud);
         std::cout << "Applied ICP iteration(s) in " << time.toc() << " ms" << std::endl;
 
         if (icp.hasConverged())
         {
-            transform_result = icp.getFinalTransformation().cast<double>();
+            transform_result = icp.getFinalTransformation().cast<double>() * init_guess;
         }
         else
         {
