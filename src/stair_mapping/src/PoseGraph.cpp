@@ -40,48 +40,47 @@ namespace stair_mapping
             delete problem_;
         problem_ = new ceres::Problem();
 
-        CHECK(poses != NULL);
-        if (constraints.empty())
+        if (vertex_list_.empty() ||
+            edge_list_.empty())
         {
-            LOG(INFO) << "No constraints, no problem to optimize.";
+            std::cout << "No constraints, no problem to optimize." << std::endl;
             return;
         }
 
         ceres::LossFunction *loss_function = NULL;
-        ceres::LocalParameterization *quaternion_local_parameterization =
-            new EigenQuaternionParameterization;
 
-        for (VectorOfConstraints::const_iterator constraints_iter =
-                 constraints.begin();
-             constraints_iter != constraints.end();
-             ++constraints_iter)
+        for (const auto& edge : edge_list_)
         {
-            const Constraint3d &constraint = *constraints_iter;
+            if (edge.id_begin >= edge_list_.size() ||
+                edge.id_end >= edge_list_.size() ||
+                edge.id_begin < 0 ||
+                edge.id_end < 0)
+            {
+                std::cout << "Invalid constraints, vtx index out of range." << std::endl;
+                continue;
+            }
 
-            MapOfPoses::iterator pose_begin_iter = poses->find(constraint.id_begin);
-            CHECK(pose_begin_iter != poses->end())
-                << "Pose with ID: " << constraint.id_begin << " not found.";
-            MapOfPoses::iterator pose_end_iter = poses->find(constraint.id_end);
-            CHECK(pose_end_iter != poses->end())
-                << "Pose with ID: " << constraint.id_end << " not found.";
+            auto& pose_begin = vertex_list_[edge.id_begin];
+            auto& pose_end = vertex_list_[edge.id_end];
 
             const Eigen::Matrix<double, 6, 6> sqrt_information =
-                constraint.information.llt().matrixL();
+                edge.information.llt().matrixL();
+
             // Ceres will take ownership of the pointer.
             ceres::CostFunction *cost_function =
-                PoseGraph3dErrorTerm::Create(constraint.t_be, sqrt_information);
+                PoseGraph3dErrorTerm::Create(edge.t_be, sqrt_information);
 
-            problem->AddResidualBlock(cost_function,
+            problem_->AddResidualBlock(cost_function,
                                       loss_function,
-                                      pose_begin_iter->second.p.data(),
-                                      pose_begin_iter->second.q.coeffs().data(),
-                                      pose_end_iter->second.p.data(),
-                                      pose_end_iter->second.q.coeffs().data());
+                                      pose_begin.t_vertex.p.data(),
+                                      pose_begin.t_vertex.q.coeffs().data(),
+                                      pose_end.t_vertex.p.data(),
+                                      pose_end.t_vertex.q.coeffs().data());
 
-            problem->SetParameterization(pose_begin_iter->second.q.coeffs().data(),
-                                         quaternion_local_parameterization);
-            problem->SetParameterization(pose_end_iter->second.q.coeffs().data(),
-                                         quaternion_local_parameterization);
+            problem_->SetParameterization(pose_begin.t_vertex.q.coeffs().data(),
+                                         local_parameterization_);
+            problem_->SetParameterization(pose_end.t_vertex.q.coeffs().data(),
+                                         local_parameterization_);
         }
 
         // The pose graph optimization problem has six DOFs that are not fully
@@ -91,10 +90,9 @@ namespace stair_mapping
         // internal damping which mitigates this issue, but it is better to properly
         // constrain the gauge freedom. This can be done by setting one of the poses
         // as constant so the optimizer cannot change it.
-        MapOfPoses::iterator pose_start_iter = poses->begin();
-        CHECK(pose_start_iter != poses->end()) << "There are no poses.";
-        problem->SetParameterBlockConstant(pose_start_iter->second.p.data());
-        problem->SetParameterBlockConstant(pose_start_iter->second.q.coeffs().data());
+        auto& pose_start = vertex_list_[0];
+        problem_->SetParameterBlockConstant(pose_start.t_vertex.p.data());
+        problem_->SetParameterBlockConstant(pose_start.t_vertex.q.coeffs().data());
     }
 
     bool PoseGraph::solve()
