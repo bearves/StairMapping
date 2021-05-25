@@ -26,6 +26,14 @@ struct Pose3d
         q = af.rotation();
     }
 
+    const Eigen::Matrix4d toMat4d() const
+    {
+        Eigen::Matrix4d mat4d = Eigen::Matrix4d::Identity();
+        mat4d.block<3,3>(0,0) = q.normalized().toRotationMatrix();
+        mat4d.block<3,1>(0,3) = p;
+        return mat4d;
+    }
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
@@ -40,6 +48,11 @@ struct Vertex3d
     Vertex3d(Eigen::Matrix4d t)
         : t_vertex(t)
     {
+    }
+
+    const Eigen::Matrix4d toMat4d() const
+    {
+        return t_vertex.toMat4d();
     }
 
     Pose3d t_vertex;

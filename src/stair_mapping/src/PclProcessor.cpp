@@ -13,7 +13,8 @@ namespace stair_mapping
     {
         preprocess_pub_ = node.advertise<sensor_msgs::PointCloud2>("preprocessed_points", 1);
         submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
-        global_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_points", 1);
+        global_map_opt_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_opt_points", 1);
+        global_map_raw_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_raw_points", 1);
         //height_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("height_map_pcl", 1);
         //cost_map_pub_ = node.advertise<nav_msgs::OccupancyGrid>("terrain_cost_map", 1);
         odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &PclProcessor::odomMsgCallback, this);
@@ -93,6 +94,11 @@ namespace stair_mapping
     void PclProcessor::submapMatch(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud)
     {
         using namespace Eigen;
+
+        odom_msg_mtx_.lock();
+        Matrix4d t_frame_odom = current_odom_mat_;
+        odom_msg_mtx_.unlock();
+
         // FrontEnd
         // scan-to-submap matcher
         // if no submap exists
@@ -102,7 +108,12 @@ namespace stair_mapping
             ROS_INFO("Init new global map");
             SubMap::Ptr p_sm(new SubMap);
             p_sm->init();
-            global_map_.addNewSubmap(p_sm, Matrix4d::Identity());
+            global_map_.addNewSubmap(
+                p_sm, 
+                Matrix4d::Identity(), // m2m laser match
+                Matrix4d::Identity(), // m2m odom
+                t_frame_odom          // imu
+            );
         }
 
         SubMap::Ptr last_sm = global_map_.getLastSubMap();
@@ -113,10 +124,6 @@ namespace stair_mapping
         // match current frame to the last submap
         double score = 1e8;
         double SUCCESS_SCORE = 2;
-
-        odom_msg_mtx_.lock();
-        Matrix4d t_frame_odom = current_odom_mat_;
-        odom_msg_mtx_.unlock();
 
         Matrix4d t_guess = last_sm->getRelativeTfGuess(t_frame_odom);
         Matrix4d t_frame_to_last_map = t_guess;
@@ -152,7 +159,12 @@ namespace stair_mapping
                 p_sm->init();
                 p_sm->addFrame(*p_in_cloud, Matrix4d::Identity(), t_frame_odom);
                 // match to last submap if exists, record transform Ti
-                global_map_.addNewSubmap(p_sm, t_frame_to_last_map);
+                global_map_.addNewSubmap(
+                    p_sm, 
+                    t_frame_to_last_map, // m2m scan match
+                    t_guess,             // m2m odom
+                    t_frame_odom         // global imu
+                );
                 current_sm = p_sm;
             }
             else
@@ -193,12 +205,19 @@ namespace stair_mapping
 
     void PclProcessor::publishMap()
     {
-        sensor_msgs::PointCloud2 global_map_out_cloud2;
-        const PointCloudT::Ptr p_global_points = global_map_.getGlobalMapPoints();
-        pcl::toROSMsg(*p_global_points, global_map_out_cloud2);
-        global_map_out_cloud2.header.frame_id = "map";
-        global_map_out_cloud2.header.stamp = ros::Time::now();
-        global_map_pub_.publish(global_map_out_cloud2);
+        sensor_msgs::PointCloud2 global_map_opt_out_cloud2;
+        const PointCloudT::Ptr p_global_opt_points = global_map_.getGlobalMapOptPoints();
+        pcl::toROSMsg(*p_global_opt_points, global_map_opt_out_cloud2);
+        global_map_opt_out_cloud2.header.frame_id = "map";
+        global_map_opt_out_cloud2.header.stamp = ros::Time::now();
+        global_map_opt_pub_.publish(global_map_opt_out_cloud2);
+
+        sensor_msgs::PointCloud2 global_map_raw_out_cloud2;
+        const PointCloudT::Ptr p_global_raw_points = global_map_.getGlobalMapRawPoints();
+        pcl::toROSMsg(*p_global_raw_points, global_map_raw_out_cloud2);
+        global_map_raw_out_cloud2.header.frame_id = "map";
+        global_map_raw_out_cloud2.header.stamp = ros::Time::now();
+        global_map_raw_pub_.publish(global_map_raw_out_cloud2);
     }
 
     void PclProcessor::publishMapTf()
@@ -206,7 +225,7 @@ namespace stair_mapping
         geometry_msgs::TransformStamped transformStamped;
 
         //transformStamped.header.seq = msg->header.seq;
-        Eigen::Affine3d last_tf(global_map_.getLastSubMapTf());
+        Eigen::Affine3d last_tf(global_map_.getLastSubMapOptTf());
         transformStamped = tf2::eigenToTransform(last_tf);
         transformStamped.header.stamp = ros::Time::now();
         transformStamped.header.frame_id = "map";

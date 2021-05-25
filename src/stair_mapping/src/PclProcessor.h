@@ -27,7 +27,8 @@ namespace stair_mapping
 
         ros::Publisher preprocess_pub_;
         ros::Publisher submap_pub_;
-        ros::Publisher global_map_pub_;
+        ros::Publisher global_map_opt_pub_;
+        ros::Publisher global_map_raw_pub_;
         ros::Publisher height_map_pub_;
         ros::Publisher cost_map_pub_;
         tf2_ros::TransformBroadcaster br_;

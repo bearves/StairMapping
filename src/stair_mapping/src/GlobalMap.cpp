@@ -3,8 +3,9 @@
 namespace stair_mapping
 {
     GlobalMap::GlobalMap()
-    : p_global_map_points_(new PointCloudT),
-      last_submap_cnt_(0)
+        : p_global_map_raw_points_(new PointCloudT),
+          p_global_map_opt_points_(new PointCloudT),
+          last_submap_cnt_(0)
     {
     }
 
@@ -13,7 +14,11 @@ namespace stair_mapping
         return submaps_.size();
     }
 
-    void GlobalMap::addNewSubmap(SubMap::Ptr sm, Eigen::Matrix4d transform)
+    void GlobalMap::addNewSubmap(
+        SubMap::Ptr sm, 
+        Eigen::Matrix4d tf_m2m_laser,
+        Eigen::Matrix4d tf_m2m_odom,
+        Eigen::Matrix4d tf_m2gm_imu)
     {
         // lock since the change of submap number can affect the map building thread
         build_map_mutex_.lock();
@@ -21,15 +26,20 @@ namespace stair_mapping
         if (submap_cnt <= 0) 
         {
             // first map
-            T_m2gm_raw_.push_back(transform);
+            T_m2gm_raw_.push_back(tf_m2m_laser);
+            T_m2gm_opt_.push_back(tf_m2m_laser);
         }
         else
         {
             auto last_tf = T_m2gm_raw_[submap_cnt-1];
-            T_m2gm_raw_.push_back(last_tf * transform);
+            T_m2gm_raw_.push_back(last_tf * tf_m2m_laser);
+            auto last_opt_tf = T_m2gm_opt_[submap_cnt-1];
+            T_m2gm_opt_.push_back(last_opt_tf * tf_m2m_laser);
         }
         submaps_.push_back(sm);
-        T_m2m_.push_back(transform);
+        T_m2m_laser_.push_back(tf_m2m_laser);
+        T_m2m_odom_.push_back(tf_m2m_odom);
+        T_m2gm_imu_.push_back(tf_m2gm_imu);
         build_map_mutex_.unlock();
     }
 
@@ -41,7 +51,7 @@ namespace stair_mapping
             return submaps_[submaps_.size() - 1];
     }
 
-    Eigen::Matrix4d GlobalMap::getLastSubMapTf()
+    Eigen::Matrix4d GlobalMap::getLastSubMapRawTf()
     {
         Eigen::Matrix4d last_tf;
 
@@ -55,17 +65,38 @@ namespace stair_mapping
         return last_tf;
     }
 
-    const PointCloudT::Ptr GlobalMap::getGlobalMapPoints()
+    Eigen::Matrix4d GlobalMap::getLastSubMapOptTf()
     {
-        return p_global_map_points_;
+        Eigen::Matrix4d last_opt_tf;
+
+        build_map_mutex_.lock();
+        if (submaps_.size() == 0 )
+            last_opt_tf = Eigen::Matrix4d::Identity();
+        else
+            last_opt_tf = T_m2gm_opt_[T_m2gm_opt_.size() - 1];
+        build_map_mutex_.unlock();
+
+        return last_opt_tf;
+    }
+
+    const PointCloudT::Ptr GlobalMap::getGlobalMapRawPoints()
+    {
+        return p_global_map_raw_points_;
+    }
+
+    const PointCloudT::Ptr GlobalMap::getGlobalMapOptPoints()
+    {
+        return p_global_map_opt_points_;
     }
 
     std::size_t GlobalMap::updateGlobalMapPoints()
     {
         using namespace Eigen;
 
-        PointCloudT transformed_frame;
-        PointCloudT::Ptr p_all_points(new PointCloudT);
+        PointCloudT transformed_opt_frame;
+        PointCloudT transformed_raw_frame;
+        PointCloudT::Ptr p_all_raw_points(new PointCloudT);
+        PointCloudT::Ptr p_all_opt_points(new PointCloudT);
 
         build_map_mutex_.lock();
         auto submap_cnt = submapCount();
@@ -77,11 +108,20 @@ namespace stair_mapping
         {
             pcl::transformPointCloud(
                 *(submaps_[i]->getSubmapPoints()), 
-                transformed_frame, 
+                transformed_opt_frame, 
+                T_m2gm_opt_[i]);
+            p_all_opt_points->operator+=( transformed_opt_frame );
+
+            pcl::transformPointCloud(
+                *(submaps_[i]->getSubmapPoints()), 
+                transformed_raw_frame, 
                 T_m2gm_raw_[i]);
-            p_all_points->operator+=( transformed_frame );
+            p_all_raw_points->operator+=( transformed_raw_frame );
         }
-        *p_global_map_points_ = *p_all_points;
+
+        *p_global_map_opt_points_ = *p_all_opt_points;
+        *p_global_map_raw_points_ = *p_all_raw_points;
+
         return submap_cnt;
     }
 
@@ -93,26 +133,44 @@ namespace stair_mapping
         auto submap_cnt = submapCount();
         build_map_mutex_.unlock();
 
-        // only optimize every 5 submap have been added
-        if (!(submap_cnt > 0 && submap_cnt % 5 == 0)) 
+        // only optimize every 3 submap have been added
+        if (!(submap_cnt > 0 && submap_cnt % 2 == 0)) 
             return false;
         
         // if we have run optimizer before at this submap cnt, skip optimizing
         if (submap_cnt == last_submap_cnt_)
             return false;
 
+        // add vertices
         for(int i = 0; i < submap_cnt; i++)
         {
             Vertex3d v(T_m2gm_raw_[i]);
             pg_.addVertex(v);
         }
-
+        // edge of submap-to-submap scan match constraints
         for(int i = 0; i < submap_cnt-1; i++)
         {
-            Pose3d t_edge(T_m2m_[i+1]);
+            Pose3d t_edge(T_m2m_laser_[i+1]);
             pg_.addEdge(i, i+1, t_edge, InfoMatrix::Identity());
         }
+        // edge of submap-to-submap odom constraints
+        // for(int i = 0; i < submap_cnt-1; i++)
+        // {
+        //     Pose3d t_edge(T_m2m_odom_[i+1]);
+        //     pg_.addEdge(i, i+1, t_edge, 0.1*InfoMatrix::Identity());
+        // }
+        // edge of orientation imu constraints
+        for(int i = 0; i < submap_cnt-1; i+=2)
+        {
+            Pose3d t_edge(T_m2gm_imu_[i+1]);
+            InfoMatrix ifm;
+            ifm.setZero();
+            // only weight orientations
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 1, 1, 1;
+            pg_.addEdge(0, i+1, t_edge, 200*ifm);
+        }
 
+        // solve
         try
         {
             bool ret = pg_.solve();
@@ -120,11 +178,14 @@ namespace stair_mapping
         catch(const std::exception& e)
         {
             std::cerr << e.what() << '\n';
+            return false;
         }
 
+        // copy out results
         for(int i = 0; i < submap_cnt; i++)
         {
-
+            const Vertex3d v = pg_.getVertices()->at(i);
+            T_m2gm_opt_[i] = v.toMat4d();
         }
 
         last_submap_cnt_ = submap_cnt;
