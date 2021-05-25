@@ -144,8 +144,8 @@ namespace stair_mapping
         pcl::IterativeClosestPointWithNormals<PointTN, PointTN> icp;
 
         PointCloudTN::Ptr icp_result_cloud(new PointCloudTN);
-        icp.setMaximumIterations(40);
-        icp.setMaxCorrespondenceDistance(0.1);
+        icp.setMaximumIterations(50);
+        icp.setMaxCorrespondenceDistance(0.08);
         
         icp.setInputSource(p_input_tn);
         icp.setInputTarget(p_target_tn);

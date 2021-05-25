@@ -5,6 +5,8 @@
 namespace stair_mapping
 {
 
+typedef Eigen::Matrix<double, 6, 6> InfoMatrix;
+
 // The SE3 transform for reprensenting vertices and constraints
 struct Pose3d
 {
@@ -41,7 +43,7 @@ struct Edge3d
 
     // The inverse of the covariance matrix for the measurement. The order of the
     // entries are x, y, z, delta orientation.
-    Eigen::Matrix<double, 6, 6> information;
+    InfoMatrix information;
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
@@ -141,17 +143,21 @@ class PoseGraph
 {
 public:
     PoseGraph();
+
     virtual ~PoseGraph();
-    void addVertex();
-    void addEdge();
-    void buildProblem();
+
+    void addVertex(const Vertex3d init_guess);
+
+    void addEdge(
+        int id_begin, int id_end, 
+        const Pose3d t_edge, 
+        const InfoMatrix info_mat = InfoMatrix::Identity());
+
     bool solve();
 
+    const std::vector<Vertex3d>* const getVertices();
+
 private:
-    ceres::Problem* problem_;
-    ceres::Solver::Options options_;     
-    ceres::Solver::Summary summary_;                // summary of the optimiztion result
-    ceres::LocalParameterization* local_parameterization_;
     std::vector<Vertex3d> vertex_list_;
     std::vector<Edge3d> edge_list_;
 };
