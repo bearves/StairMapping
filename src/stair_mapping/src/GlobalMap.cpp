@@ -3,7 +3,8 @@
 namespace stair_mapping
 {
     GlobalMap::GlobalMap()
-    : p_global_map_points_(new PointCloudT)
+    : p_global_map_points_(new PointCloudT),
+      last_submap_cnt_(0)
     {
     }
 
@@ -83,4 +84,52 @@ namespace stair_mapping
         *p_global_map_points_ = *p_all_points;
         return submap_cnt;
     }
+
+    bool GlobalMap::runGlobalPoseOptimizer()
+    {
+        pg_.reset();
+
+        build_map_mutex_.lock();
+        auto submap_cnt = submapCount();
+        build_map_mutex_.unlock();
+
+        // only optimize every 5 submap have been added
+        if (!(submap_cnt > 0 && submap_cnt % 5 == 0)) 
+            return false;
+        
+        // if we have run optimizer before at this submap cnt, skip optimizing
+        if (submap_cnt == last_submap_cnt_)
+            return false;
+
+        for(int i = 0; i < submap_cnt; i++)
+        {
+            Vertex3d v(T_m2gm_raw_[i]);
+            pg_.addVertex(v);
+        }
+
+        for(int i = 0; i < submap_cnt-1; i++)
+        {
+            Pose3d t_edge(T_m2m_[i+1]);
+            pg_.addEdge(i, i+1, t_edge, InfoMatrix::Identity());
+        }
+
+        try
+        {
+            bool ret = pg_.solve();
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+        }
+
+        for(int i = 0; i < submap_cnt; i++)
+        {
+
+        }
+
+        last_submap_cnt_ = submap_cnt;
+
+        return true;
+    }
+
 }

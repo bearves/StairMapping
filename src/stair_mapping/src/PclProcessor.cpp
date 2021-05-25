@@ -185,6 +185,7 @@ namespace stair_mapping
 
     void PclProcessor::buildMap()
     {
+        global_map_.runGlobalPoseOptimizer();
         // concat all submaps together 
         auto submap_cnt = global_map_.updateGlobalMapPoints();
         ROS_INFO("Submap count: %ld", submap_cnt);

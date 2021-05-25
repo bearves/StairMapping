@@ -3,6 +3,7 @@
 #include <vector>
 #include <mutex>
 #include "SubMap.h"
+#include "PoseGraph.h"
 
 namespace stair_mapping
 {
@@ -17,6 +18,8 @@ public:
     std::size_t submapCount();
 
     void addNewSubmap(SubMap::Ptr sm, Eigen::Matrix4d transform);
+
+    bool runGlobalPoseOptimizer();
     
     std::size_t updateGlobalMapPoints();
 
@@ -26,8 +29,12 @@ private:
     std::vector<SubMap::Ptr> submaps_;
     std::vector<Eigen::Matrix4d> T_m2m_;
     std::vector<Eigen::Matrix4d> T_m2gm_raw_;
+    std::vector<Eigen::Matrix4d> T_m2gm_opt_;
 
     PointCloudT::Ptr p_global_map_points_;
+
+    PoseGraph pg_; 
+    size_t last_submap_cnt_;
 
     std::mutex build_map_mutex_;
 };

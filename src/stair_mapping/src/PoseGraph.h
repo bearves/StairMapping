@@ -19,12 +19,29 @@ struct Pose3d
         q.setIdentity();
     }
 
+    Pose3d(Eigen::Matrix4d t)
+    {
+        Eigen::Affine3d af(t);
+        p = af.translation();
+        q = af.rotation();
+    }
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 // The vertex of the graph
 struct Vertex3d
 {
+    Vertex3d()
+        : t_vertex()
+    {
+    }
+
+    Vertex3d(Eigen::Matrix4d t)
+        : t_vertex(t)
+    {
+    }
+
     Pose3d t_vertex;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
@@ -145,6 +162,8 @@ public:
     PoseGraph();
 
     virtual ~PoseGraph();
+
+    void reset();
 
     void addVertex(const Vertex3d init_guess);
 

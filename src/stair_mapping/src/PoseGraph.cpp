@@ -12,6 +12,12 @@ namespace stair_mapping
     {
     }
 
+    void PoseGraph::reset()
+    {
+        vertex_list_.clear();
+        edge_list_.clear();
+    }
+
     void PoseGraph::addVertex(const Vertex3d init_guess)
     {
         vertex_list_.push_back(init_guess);
