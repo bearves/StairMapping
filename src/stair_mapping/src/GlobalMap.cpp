@@ -167,7 +167,7 @@ namespace stair_mapping
             ifm.setZero();
             // only weight orientations
             ifm.diagonal() << 1e-16, 1e-16, 1e-16, 1, 1, 1;
-            pg_.addEdge(0, i+1, t_edge, 200*ifm);
+            pg_.addEdge(0, i+1, t_edge, 50*ifm);
         }
 
         // solve

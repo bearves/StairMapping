@@ -36,3 +36,25 @@ void PreProcessor::crop(const PointCloudT::Ptr p_input_cloud, PointCloudT::Ptr p
     ptz.setFilterLimits(min[2], max[2]);
     ptz.filter(*p_output_cloud);
 }
+
+void PreProcessor::crop(const PointCloudTN::Ptr p_input_cloud, PointCloudTN::Ptr p_output_cloud, Eigen::Vector3f min, Eigen::Vector3f max)
+{
+    pcl::PassThrough<PointTN> ptx, pty, ptz;
+    PointCloudTN::Ptr p_after_x(new PointCloudTN);
+    PointCloudTN::Ptr p_after_y(new PointCloudTN);
+
+    ptx.setInputCloud(p_input_cloud);
+    ptx.setFilterFieldName ("x");
+    ptx.setFilterLimits(min[0], max[0]);
+    ptx.filter(*p_after_x);
+
+    pty.setInputCloud(p_after_x);
+    pty.setFilterFieldName ("y");
+    pty.setFilterLimits(min[1], max[1]);
+    pty.filter(*p_after_y);
+
+    ptz.setInputCloud(p_after_y);
+    ptz.setFilterFieldName ("z");
+    ptz.setFilterLimits(min[2], max[2]);
+    ptz.filter(*p_output_cloud);
+}

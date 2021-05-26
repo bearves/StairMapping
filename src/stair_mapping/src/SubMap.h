@@ -12,7 +12,7 @@ namespace stair_mapping
 class SubMap
 {
 public:
-    SubMap(int max_stored_pcl_count = 4);
+    SubMap(int max_stored_pcl_count);
 
     void init();
 
@@ -55,6 +55,11 @@ private:
     void getNormal(
         const PointCloudT::Ptr& input_cloud,
         const PointCloudN::Ptr& normal_cloud
+    );
+
+    void computeInfomation(
+        const PointCloudTN::Ptr& result_cloud,
+        const PointCloudTN::Ptr& target_cloud
     );
 };
 

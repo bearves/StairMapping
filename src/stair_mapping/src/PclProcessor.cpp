@@ -95,6 +95,8 @@ namespace stair_mapping
     {
         using namespace Eigen;
 
+        int submap_store_cap = 2;
+
         odom_msg_mtx_.lock();
         Matrix4d t_frame_odom = current_odom_mat_;
         odom_msg_mtx_.unlock();
@@ -106,7 +108,7 @@ namespace stair_mapping
         {
             // init new submap with current pcl, set its transform to I
             ROS_INFO("Init new global map");
-            SubMap::Ptr p_sm(new SubMap);
+            SubMap::Ptr p_sm(new SubMap(submap_store_cap));
             p_sm->init();
             global_map_.addNewSubmap(
                 p_sm, 
@@ -155,7 +157,7 @@ namespace stair_mapping
                 // init new submap with current pcl
                 ROS_INFO("Create new submap");
 
-                SubMap::Ptr p_sm(new SubMap);
+                SubMap::Ptr p_sm(new SubMap(submap_store_cap));
                 p_sm->init();
                 p_sm->addFrame(*p_in_cloud, Matrix4d::Identity(), t_frame_odom);
                 // match to last submap if exists, record transform Ti
@@ -205,19 +207,23 @@ namespace stair_mapping
 
     void PclProcessor::publishMap()
     {
-        sensor_msgs::PointCloud2 global_map_opt_out_cloud2;
-        const PointCloudT::Ptr p_global_opt_points = global_map_.getGlobalMapOptPoints();
-        pcl::toROSMsg(*p_global_opt_points, global_map_opt_out_cloud2);
-        global_map_opt_out_cloud2.header.frame_id = "map";
-        global_map_opt_out_cloud2.header.stamp = ros::Time::now();
-        global_map_opt_pub_.publish(global_map_opt_out_cloud2);
+        sensor_msgs::PointCloud2 opt_pc2;
+        PointCloudT::Ptr p_global_opt_ds(new PointCloudT);
+        auto p_global_opt_pc = global_map_.getGlobalMapOptPoints();
+        PreProcessor::downSample(p_global_opt_pc, p_global_opt_ds, 0.01);
+        pcl::toROSMsg(*p_global_opt_ds, opt_pc2);
+        opt_pc2.header.frame_id = "map";
+        opt_pc2.header.stamp = ros::Time::now();
+        global_map_opt_pub_.publish(opt_pc2);
 
-        sensor_msgs::PointCloud2 global_map_raw_out_cloud2;
-        const PointCloudT::Ptr p_global_raw_points = global_map_.getGlobalMapRawPoints();
-        pcl::toROSMsg(*p_global_raw_points, global_map_raw_out_cloud2);
-        global_map_raw_out_cloud2.header.frame_id = "map";
-        global_map_raw_out_cloud2.header.stamp = ros::Time::now();
-        global_map_raw_pub_.publish(global_map_raw_out_cloud2);
+        sensor_msgs::PointCloud2 raw_pc2;
+        PointCloudT::Ptr p_global_raw_ds(new PointCloudT);
+        auto p_global_raw_pc = global_map_.getGlobalMapRawPoints();
+        PreProcessor::downSample(p_global_raw_pc, p_global_raw_ds, 0.01);
+        pcl::toROSMsg(*p_global_raw_ds, raw_pc2);
+        raw_pc2.header.frame_id = "map";
+        raw_pc2.header.stamp = ros::Time::now();
+        global_map_raw_pub_.publish(raw_pc2);
     }
 
     void PclProcessor::publishMapTf()
