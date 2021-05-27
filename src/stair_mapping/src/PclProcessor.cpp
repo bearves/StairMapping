@@ -5,7 +5,6 @@
 #include <pcl/io/pcd_io.h>
 #include <termios.h>
 #include "PreProcessor.h"
-#include "HeightMap.h"
 
 namespace stair_mapping
 {
@@ -15,10 +14,10 @@ namespace stair_mapping
         submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
         global_map_opt_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_opt_points", 1);
         global_map_raw_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_raw_points", 1);
-        //height_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("height_map_pcl", 1);
-        //cost_map_pub_ = node.advertise<nav_msgs::OccupancyGrid>("terrain_cost_map", 1);
         odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &PclProcessor::odomMsgCallback, this);
         pcl_sub_ = node.subscribe("transformed_points", 1, &PclProcessor::pclMsgCallback, this);
+        //height_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("height_map_pcl", 1);
+        //cost_map_pub_ = node.advertise<nav_msgs::OccupancyGrid>("terrain_cost_map", 1);
     }
 
     void PclProcessor::pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
@@ -95,7 +94,7 @@ namespace stair_mapping
     {
         using namespace Eigen;
 
-        int submap_store_cap = 2;
+        int submap_store_cap = 1;
 
         odom_msg_mtx_.lock();
         Matrix4d t_frame_odom = current_odom_mat_;
@@ -114,7 +113,8 @@ namespace stair_mapping
                 p_sm, 
                 Matrix4d::Identity(), // m2m laser match
                 Matrix4d::Identity(), // m2m odom
-                t_frame_odom          // imu
+                t_frame_odom,          // imu
+                100*InfoMatrix::Identity() // information of the submap
             );
         }
 
@@ -129,6 +129,7 @@ namespace stair_mapping
 
         Matrix4d t_guess = last_sm->getRelativeTfGuess(t_frame_odom);
         Matrix4d t_frame_to_last_map = t_guess;
+        InfoMatrix info_mat;
 
         // reject frames when robot is not moving at all
         Vector3d translation_guess = Affine3d(t_guess).translation();
@@ -140,7 +141,7 @@ namespace stair_mapping
 
         try
         {
-            score = last_sm->match(*p_in_cloud, t_guess, t_frame_to_last_map);
+            score = last_sm->match(*p_in_cloud, t_guess, t_frame_to_last_map, info_mat);
         }
         catch (std::runtime_error &ex)
         {
@@ -165,7 +166,8 @@ namespace stair_mapping
                     p_sm, 
                     t_frame_to_last_map, // m2m scan match
                     t_guess,             // m2m odom
-                    t_frame_odom         // global imu
+                    t_frame_odom,        // global imu
+                    info_mat             // infomation matrix of the laser match
                 );
                 current_sm = p_sm;
             }
@@ -239,69 +241,5 @@ namespace stair_mapping
 
         //ROS_INFO("Robot tf: %f %f %f", -p / M_PI * 180, r / M_PI * 180, y / M_PI * 180);
         br_.sendTransform(transformStamped);
-    }
-
-    void PclProcessor::doProcess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud, 
-                       Eigen::MatrixXd& height_map, Eigen::MatrixXd& cost_map)
-    {
-        // crop
-        PointCloudT::Ptr p_cloud_cr(new PointCloudT);
-        PreProcessor::crop(p_in_cloud, p_cloud_cr, Eigen::Vector3f(0, -0.5, -0.8), Eigen::Vector3f(2.3, 0.5, 0.2));
-
-        // downsampling
-        PointCloudT::Ptr p_cloud_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.04);
-        ROS_INFO("After downsample size: %d -> %d", sizes[0], sizes[1]);
-
-        // convert to height map
-        PointCloudT::Ptr height_filled_pcl(new PointCloudT);
-        PointCloudT::Ptr cost_pcl(new PointCloudT);
-
-        HeightMap::generateHeightMap(p_cloud_ds, height_map);
-        HeightMap::fillSmallHoles(height_map);
-        HeightMap::generateCostMap(height_map, cost_map);
-
-        HeightMap::getPclFromHeightMap(height_map, height_filled_pcl);
-        HeightMap::getPclFromHeightMap(cost_map, cost_pcl);
-
-        p_out_cloud = height_filled_pcl;
-    }
-
-    void PclProcessor::generateCostGrid(Eigen::MatrixXd &cost_map, nav_msgs::OccupancyGrid &cost_grid)
-    {
-        cost_grid.header.frame_id = "base_world";
-        cost_grid.header.stamp = ros::Time::now();
-        cost_grid.info.height = HeightMap::MAP_ROWS;
-        cost_grid.info.width = HeightMap::MAP_COLS;
-        cost_grid.info.resolution = HeightMap::GRID_SIZE;
-        cost_grid.info.origin.orientation.x = 0;
-        cost_grid.info.origin.orientation.y = 0;
-        cost_grid.info.origin.orientation.z = 0;
-        cost_grid.info.origin.orientation.w = 1;
-        cost_grid.info.origin.position.x = HeightMap::MAP_X0;
-        cost_grid.info.origin.position.y = -HeightMap::MAP_WIDTH/2;
-        cost_grid.info.origin.position.z = -2;
-        cost_grid.data.resize(HeightMap::MAP_COLS * HeightMap::MAP_ROWS);
-
-        double cost_threshold = 0.1;
-
-        for (int i = 0; i < HeightMap::MAP_ROWS; i++)
-        {
-            for (int j = 0; j < HeightMap::MAP_COLS; j++)
-            {
-                if (cost_map(i, j) < HeightMap::INVALID_VALUE+0.1)
-                {
-                    cost_grid.data[i * HeightMap::MAP_COLS + j] = -1;
-                }
-                else if (cost_map(i, j) < cost_threshold)
-                {
-                    cost_grid.data[i * HeightMap::MAP_COLS + j] = cost_map(i,j)/cost_threshold * 100;
-                }
-                else
-                {
-                    cost_grid.data[i * HeightMap::MAP_COLS + j] = 100;
-                }
-            }
-        }
     }
 }

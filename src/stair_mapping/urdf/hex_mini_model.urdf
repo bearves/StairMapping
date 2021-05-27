@@ -51,7 +51,7 @@
 	</joint>
 
 	<joint name="joint_camera_to_base" type="fixed">
-	    <origin xyz="0.22 0 0.26" rpy="0 2.05 -0.04" />
+	    <origin xyz="0.22 0 0.26" rpy="0 2.09 -0.04" />
 		<parent link="base_link" />
 		<child link="camera_device_link" />
 	</joint>

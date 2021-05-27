@@ -1,4 +1,5 @@
 #include "PoseGraph.h"
+#include <ros/ros.h>
 
 namespace stair_mapping
 {
@@ -41,7 +42,7 @@ namespace stair_mapping
         if (vertex_list_.empty() ||
             edge_list_.empty())
         {
-            std::cout << "No constraints, no problem to optimize." << std::endl;
+            ROS_INFO("No constraints, no problem to optimize.");
             return false;
         }
 
@@ -57,7 +58,7 @@ namespace stair_mapping
                 edge.id_begin < 0 ||
                 edge.id_end < 0)
             {
-                std::cout << "Invalid constraints, vtx index out of range." << std::endl;
+                ROS_INFO("Invalid constraints, vtx index out of range.");
                 continue;
             }
 
@@ -101,7 +102,7 @@ namespace stair_mapping
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
 
         ceres::Solve(options, &problem, &summary);
-        std::cout << summary.FullReport() << '\n';
+        ROS_INFO("%s", summary.FullReport().c_str());
         return summary.IsSolutionUsable();
     }
 

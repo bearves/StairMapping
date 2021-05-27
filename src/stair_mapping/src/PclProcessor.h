@@ -42,10 +42,6 @@ namespace stair_mapping
         void pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
         void odomMsgCallback(const nav_msgs::OdometryConstPtr &msg);
 
-        void doProcess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud, 
-                       Eigen::MatrixXd& height_map, Eigen::MatrixXd& cost_map);
-        void generateCostGrid(Eigen::MatrixXd& cost_map, nav_msgs::OccupancyGrid& cost_grid);
-
         void preProcess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
         void submapMatch(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
         void buildMap();

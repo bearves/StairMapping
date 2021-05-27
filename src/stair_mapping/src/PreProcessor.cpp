@@ -2,6 +2,7 @@
 #include <pcl/common/transforms.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/passthrough.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <Eigen/Dense>
 
 Eigen::Vector2i PreProcessor::downSample(const PointCloudT::Ptr p_input_cloud, PointCloudT::Ptr p_output_cloud, double leaf_size)
@@ -57,4 +58,13 @@ void PreProcessor::crop(const PointCloudTN::Ptr p_input_cloud, PointCloudTN::Ptr
     ptz.setFilterFieldName ("z");
     ptz.setFilterLimits(min[2], max[2]);
     ptz.filter(*p_output_cloud);
+}
+
+void PreProcessor::removeAlone(const PointCloudT::Ptr p_input_cloud, PointCloudT::Ptr p_output_cloud, int meanK, double thresh)
+{
+    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+    sor.setInputCloud(p_input_cloud);
+    sor.setMeanK(meanK);
+    sor.setStddevMulThresh(thresh);
+    sor.filter(*p_output_cloud);
 }

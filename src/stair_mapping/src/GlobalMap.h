@@ -22,7 +22,8 @@ public:
         SubMap::Ptr sm, 
         Eigen::Matrix4d tf_m2m_laser,
         Eigen::Matrix4d tf_m2m_odom,
-        Eigen::Matrix4d tf_m2gm_imu
+        Eigen::Matrix4d tf_m2gm_imu,
+        InfoMatrix info_laser
     );
 
     bool runGlobalPoseOptimizer();
@@ -36,6 +37,7 @@ private:
     std::vector<SubMap::Ptr> submaps_;
     // The transform between submaps from scan match result
     std::vector<Eigen::Matrix4d> T_m2m_laser_;
+    std::vector<InfoMatrix> info_m2m_laser_;
     // The transform between submaps from robot odom
     std::vector<Eigen::Matrix4d> T_m2m_odom_;
     // The transform(orientation) of the submap in 

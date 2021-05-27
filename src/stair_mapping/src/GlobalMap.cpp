@@ -18,7 +18,8 @@ namespace stair_mapping
         SubMap::Ptr sm, 
         Eigen::Matrix4d tf_m2m_laser,
         Eigen::Matrix4d tf_m2m_odom,
-        Eigen::Matrix4d tf_m2gm_imu)
+        Eigen::Matrix4d tf_m2gm_imu,
+        InfoMatrix info_laser)
     {
         // lock since the change of submap number can affect the map building thread
         build_map_mutex_.lock();
@@ -38,6 +39,7 @@ namespace stair_mapping
         }
         submaps_.push_back(sm);
         T_m2m_laser_.push_back(tf_m2m_laser);
+        info_m2m_laser_.push_back(info_laser);
         T_m2m_odom_.push_back(tf_m2m_odom);
         T_m2gm_imu_.push_back(tf_m2gm_imu);
         build_map_mutex_.unlock();
@@ -151,23 +153,27 @@ namespace stair_mapping
         for(int i = 0; i < submap_cnt-1; i++)
         {
             Pose3d t_edge(T_m2m_laser_[i+1]);
-            pg_.addEdge(i, i+1, t_edge, 20*InfoMatrix::Identity());
+            pg_.addEdge(i, i+1, t_edge, info_m2m_laser_[i+1]);
         }
         // edge of submap-to-submap odom constraints
-        // for(int i = 0; i < submap_cnt-1; i++)
-        // {
-        //     Pose3d t_edge(T_m2m_odom_[i+1]);
-        //     pg_.addEdge(i, i+1, t_edge, 0.1*InfoMatrix::Identity());
-        // }
+        for(int i = 0; i < submap_cnt-1; i++)
+        {
+            InfoMatrix ifm;
+            ifm.setZero();
+            // only weight translations
+            ifm.diagonal() << 400, 400, 400, 1e-16, 1e-16, 1e-16;
+            Pose3d t_edge(T_m2m_odom_[i+1]);
+            pg_.addEdge(i, i+1, t_edge, ifm);
+        }
         // edge of orientation imu constraints
-        for(int i = 0; i < submap_cnt-1; i+=2)
+        for(int i = 0; i < submap_cnt-1; i++)
         {
             Pose3d t_edge(T_m2gm_imu_[i+1]);
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 1, 1, 1;
-            pg_.addEdge(0, i+1, t_edge, 30*ifm);
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 16, 16, 16;
+            pg_.addEdge(0, i+1, t_edge, ifm);
         }
 
         // solve

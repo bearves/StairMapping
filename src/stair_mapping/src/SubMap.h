@@ -5,6 +5,7 @@
 #include "PointType.h"
 #include "PreProcessor.h"
 #include <pcl/common/transforms.h>
+#include "PoseGraph.h"
 
 namespace stair_mapping
 {
@@ -27,7 +28,8 @@ public:
     double match( 
         PointCloudT frame, 
         const Eigen::Matrix4d& init_guess, 
-        Eigen::Matrix4d& t_match_result);
+        Eigen::Matrix4d& t_match_result,
+        InfoMatrix& info_match_result);
 
     const PointCloudT::Ptr getSubmapPoints();
 
@@ -50,14 +52,15 @@ private:
         const PointCloudT::Ptr& input_cloud, 
         const PointCloudT::Ptr& target_cloud, 
         const Eigen::Matrix4d& init_guess, 
-        Eigen::Matrix4d& transform_result);
+        Eigen::Matrix4d& transform_result,
+        InfoMatrix& transform_info);
     
     void getNormal(
         const PointCloudT::Ptr& input_cloud,
         const PointCloudN::Ptr& normal_cloud
     );
 
-    void computeInfomation(
+    InfoMatrix computeInfomation(
         const PointCloudTN::Ptr& result_cloud,
         const PointCloudTN::Ptr& target_cloud
     );

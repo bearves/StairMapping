@@ -66,7 +66,8 @@ namespace stair_mapping
 
     double SubMap::match(PointCloudT frame, 
         const Eigen::Matrix4d& init_guess, 
-        Eigen::Matrix4d& t_match_result)
+        Eigen::Matrix4d& t_match_result,
+        InfoMatrix& info_match_result)
     {
         int point_counts = frame.width * frame.height;
         
@@ -78,16 +79,25 @@ namespace stair_mapping
         if (current_count_ <= 0)
         {
             t_match_result = Eigen::Matrix4d::Identity();
+            info_match_result.setZero();
+            info_match_result.diagonal() << 100, 100, 100, 20, 20, 20;
             return 0; // best score
         }
         else
         {
             t_match_result = init_guess;
             // TODO: ICP/NDT match here
-            double score = matchIcp(frame.makeShared(), p_submap_points_, init_guess, t_match_result);
+            double score = matchIcp(
+                frame.makeShared(), 
+                p_submap_points_, 
+                init_guess, 
+                t_match_result,
+                info_match_result);
+
             std::cout << "Score:" << score << std::endl;
             std::cout << "Init guess:\n" << init_guess << std::endl;
             std::cout << "Registration result:\n" << t_match_result << std::endl;
+            std::cout << "Info matrix eig:\n" << info_match_result.eigenvalues().real() << std::endl;
             //t_match_result.block<3,3>(0, 0) = Eigen::Matrix3d::Identity();
 
             //t_match_result = init_guess;
@@ -99,7 +109,8 @@ namespace stair_mapping
         const PointCloudT::Ptr& input_cloud, 
         const PointCloudT::Ptr& target_cloud, 
         const Eigen::Matrix4d& init_guess, 
-        Eigen::Matrix4d& transform_result)
+        Eigen::Matrix4d& transform_result,
+        InfoMatrix& transform_info)
     {
         PointCloudT::Ptr p_input_cloud_init(new PointCloudT);
         PointCloudT::Ptr p_input_cloud_cr(new PointCloudT);
@@ -152,7 +163,7 @@ namespace stair_mapping
         icp.setInputTarget(p_target_tn);
 
         icp.align(*icp_result_cloud);
-        computeInfomation(icp_result_cloud, p_target_tn);
+        transform_info = computeInfomation(icp_result_cloud, p_target_tn);
         std::cout << "Applied ICP iteration(s) in " << time.toc() << " ms" << std::endl;
 
         if (icp.hasConverged())
@@ -180,7 +191,7 @@ namespace stair_mapping
         ne.compute(*normal_cloud);
     }
 
-    void SubMap::computeInfomation(
+    InfoMatrix SubMap::computeInfomation(
         const PointCloudTN::Ptr& result_cloud,
         const PointCloudTN::Ptr& target_cloud
     )
@@ -195,31 +206,22 @@ namespace stair_mapping
             Vector3d p(pt.x, pt.y, pt.z);
             Vector3d n(pt.normal_x, pt.normal_y, pt.normal_z);
             Vector3d pxn = p.cross(n);
+            auto nt = n.transpose();
+            auto pxnt = pxn.transpose();
 
-            info_mat.block<3,3>(0,0) += n * n.transpose();
-            info_mat.block<3,3>(0,3) += n * pxn.transpose();
-            info_mat.block<3,3>(3,0) += pxn * n.transpose();
-            info_mat.block<3,3>(3,3) += pxn * pxn.transpose();
+            info_mat.block<3,3>(0,0) += n * nt;
+            info_mat.block<3,3>(0,3) += n * pxnt;
+            info_mat.block<3,3>(3,0) += pxn * nt;
+            info_mat.block<3,3>(3,3) += pxn * pxnt;
         }
 
-        //info_mat /= (double)pt_counts;
+        double sigma = 0.01; // meter
+        info_mat /= (double)pt_counts * sigma * sigma;
         
-        EigenSolver<InfoMatrix> eig;
-        eig.compute(info_mat, true);
-        std::cout << info_mat << std::endl;
+        //EigenSolver<InfoMatrix> eig;
+        //eig.compute(info_mat, true);
 
-        std::cout << "Infomatrix Eigen Values:" << std::endl;
-        std::cout << eig.eigenvalues().real() << std::endl;
-        std::cout << eig.eigenvectors().real() << std::endl;
-
-        EigenSolver<Matrix3d> eig_t;
-        eig_t.compute(info_mat.block<3,3>(0,0), true);
-
-        std::cout << "Infomatrix Eigen Values:" << std::endl;
-        std::cout << eig_t.eigenvalues().real() << std::endl;
-        std::cout << eig_t.eigenvectors().real() << std::endl;
-
-        return;
+        return info_mat;
     }
 
     Eigen::Matrix4d SubMap::getRelativeTfGuess(const Eigen::Matrix4d& current_odom)
