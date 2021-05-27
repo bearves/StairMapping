@@ -84,7 +84,7 @@ namespace stair_mapping
 
         // downsampling
         PointCloudT::Ptr p_cloud_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.02);
+        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.015);
         ROS_INFO("After downsample size: %d -> %d", sizes[0], sizes[1]);
 
         p_out_cloud = p_cloud_ds;
@@ -133,7 +133,7 @@ namespace stair_mapping
 
         // reject frames when robot is not moving at all
         Vector3d translation_guess = Affine3d(t_guess).translation();
-        if (!last_sm->isEmpty() && translation_guess.norm() < 0.01)
+        if (!last_sm->isEmpty() && translation_guess.norm() < 0.03)
         {
             ROS_WARN("Frame too close: %f", translation_guess.norm());
             return;

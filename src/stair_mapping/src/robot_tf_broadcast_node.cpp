@@ -16,6 +16,9 @@
 ros::Subscriber pcl_sub;
 ros::Publisher pcl_pub;
 
+double y_start = 0;
+bool is_first_msg = true;
+
 void poseCallback(const sensor_msgs::ImuConstPtr &msg)
 {
     static tf2_ros::TransformBroadcaster br;
@@ -36,6 +39,12 @@ void poseCallback(const sensor_msgs::ImuConstPtr &msg)
     tf2::Matrix3x3 m(q);
     double r, p, y;
     m.getRPY(r, p, y);
+
+    if (is_first_msg)
+    {
+        y_start = y;
+        is_first_msg = false;
+    }
     y = 0;
     q_corrected.setRPY(-p, r, y);
     //q_corrected.setRPY(r, p, y);

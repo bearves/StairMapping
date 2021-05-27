@@ -161,7 +161,7 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight translations
-            ifm.diagonal() << 400, 400, 400, 1e-16, 1e-16, 1e-16;
+            ifm.diagonal() << 1000, 1000, 1000, 1e-16, 1e-16, 1e-16;
             Pose3d t_edge(T_m2m_odom_[i+1]);
             pg_.addEdge(i, i+1, t_edge, ifm);
         }
@@ -172,7 +172,7 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 16, 16, 16;
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 64, 64, 64;
             pg_.addEdge(0, i+1, t_edge, ifm);
         }
 
