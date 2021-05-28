@@ -153,7 +153,7 @@ namespace stair_mapping
         for(int i = 0; i < submap_cnt-1; i++)
         {
             Pose3d t_edge(T_m2m_laser_[i+1]);
-            pg_.addEdge(i, i+1, t_edge, info_m2m_laser_[i+1]);
+            pg_.addEdge(EDGE_TYPE::TRANSFORM, i, i+1, t_edge, info_m2m_laser_[i+1]);
         }
         // edge of submap-to-submap odom constraints
         for(int i = 0; i < submap_cnt-1; i++)
@@ -163,7 +163,7 @@ namespace stair_mapping
             // only weight translations
             ifm.diagonal() << 1000, 1000, 1000, 1e-16, 1e-16, 1e-16;
             Pose3d t_edge(T_m2m_odom_[i+1]);
-            pg_.addEdge(i, i+1, t_edge, ifm);
+            pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i+1, t_edge, ifm);
         }
         // edge of orientation imu constraints
         for(int i = 0; i < submap_cnt-1; i++)
@@ -172,8 +172,8 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 64, 64, 64;
-            pg_.addEdge(0, i+1, t_edge, ifm);
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 64, 64, 1;
+            pg_.addEdge(EDGE_TYPE::ROTATION, 0, i+1, t_edge, ifm);
         }
 
         // solve

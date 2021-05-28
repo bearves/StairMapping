@@ -25,11 +25,13 @@ namespace stair_mapping
     }
 
     void PoseGraph::addEdge(
+        EDGE_TYPE type,
         int id_begin, int id_end,
         const Pose3d t_edge,
         const InfoMatrix info_mat)
     {
         Edge3d edge;
+        edge.type = type;
         edge.id_begin = id_begin;
         edge.id_end = id_end;
         edge.t_be = t_edge;
@@ -69,20 +71,39 @@ namespace stair_mapping
                 edge.information.llt().matrixL();
 
             // Ceres will take ownership of the pointer.
-            ceres::CostFunction *cost_function =
-                PoseGraph3dErrorTerm::Create(edge.t_be, sqrt_information);
+            ceres::CostFunction *cost_function = nullptr;
+                switch (edge.type)
+            {
+            case EDGE_TYPE::TRANSFORM:
+                cost_function = PoseGraph3dErrorTerm::Create(edge.t_be, sqrt_information);
+                break;
+            case EDGE_TYPE::TRANSLATION:
+                cost_function = PoseGraph3dTranslationErrorTerm::Create(edge.t_be, sqrt_information.block<3,3>(0,0));
+                break;
+            case EDGE_TYPE::ROTATION:
+                cost_function = PoseGraph3dRotationErrorTerm::Create(edge.t_be, sqrt_information.block<3,3>(3,3));
+                break;
+            
+            default:
+                cost_function = nullptr;
+                break;
+            }
 
-            problem.AddResidualBlock(cost_function,
-                                     loss_function,
-                                     pose_begin.t_vertex.p.data(),
-                                     pose_begin.t_vertex.q.coeffs().data(),
-                                     pose_end.t_vertex.p.data(),
-                                     pose_end.t_vertex.q.coeffs().data());
+            if (cost_function)
+            {
+                problem.AddResidualBlock(cost_function,
+                                         loss_function,
+                                         pose_begin.t_vertex.p.data(),
+                                         pose_begin.t_vertex.q.coeffs().data(),
+                                         pose_end.t_vertex.p.data(),
+                                         pose_end.t_vertex.q.coeffs().data());
 
-            problem.SetParameterization(pose_begin.t_vertex.q.coeffs().data(),
-                                        local_parameterization);
-            problem.SetParameterization(pose_end.t_vertex.q.coeffs().data(),
-                                        local_parameterization);
+                problem.SetParameterization(pose_begin.t_vertex.q.coeffs().data(),
+                                            local_parameterization);
+                problem.SetParameterization(pose_end.t_vertex.q.coeffs().data(),
+                                            local_parameterization);
+            }
+
         }
 
         // The pose graph optimization problem has six DOFs that are not fully

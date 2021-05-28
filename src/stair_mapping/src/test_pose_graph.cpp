@@ -21,7 +21,7 @@ int main(int argc, char** argv)
         Pose3d t_edge;
         t_edge.p = Eigen::Vector3d::Random();
         t_edge.q = Eigen::Quaterniond::UnitRandom();
-        pg.addEdge(i, i+1, t_edge);
+        pg.addEdge(EDGE_TYPE::TRANSFORM, i, i+1, t_edge);
 
         v_answer[i+1].t_vertex.q = v_answer[i].t_vertex.q * t_edge.q;
         v_answer[i+1].t_vertex.p = v_answer[i].t_vertex.q * t_edge.p + v_answer[i].t_vertex.p;

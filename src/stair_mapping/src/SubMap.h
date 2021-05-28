@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <ros/ros.h>
 #include <Eigen/Dense>
 #include "PointType.h"
 #include "PreProcessor.h"

@@ -175,6 +175,21 @@ namespace stair_mapping
             std::cout << "\nICP has not converged.\n";
             transform_result = init_guess;
         }
+        // check the error of the result and init guess
+        // reject results that have super large errors
+        Eigen::Affine3d af_res(transform_result);
+        Eigen::Affine3d af_ini(init_guess);
+
+        Eigen::Affine3d err = af_res * af_ini.inverse();
+        double lin_err = err.translation().norm();
+        double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
+        if (lin_err > 0.2 || 
+            ang_err > 0.2)
+        {
+            ROS_ERROR("Large match error detected: %lf %lf", lin_err, ang_err);
+            transform_result = init_guess;
+        }
+
         return icp.getFitnessScore();
     }
 

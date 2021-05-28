@@ -133,7 +133,7 @@ namespace stair_mapping
 
         // reject frames when robot is not moving at all
         Vector3d translation_guess = Affine3d(t_guess).translation();
-        if (!last_sm->isEmpty() && translation_guess.norm() < 0.03)
+        if (!last_sm->isEmpty() && translation_guess.norm() < 0.015)
         {
             ROS_WARN("Frame too close: %f", translation_guess.norm());
             return;
