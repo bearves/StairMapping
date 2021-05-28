@@ -144,6 +144,13 @@ namespace stair_mapping
             Eigen::Vector3f(x_crop_min, -0.35, z_crop_min), 
             Eigen::Vector3f(x_crop_max, 0.35, z_crop_max));
 
+        if (p_input_cloud_cr->empty() || p_target_cloud_cr->empty())
+        {
+            ROS_WARN("Empty input cloud when matching");
+            transform_result = init_guess;
+            return 1e8;
+        }
+
         pcl::console::TicToc time;
         time.tic();
         // compute normal for each clouds
@@ -157,7 +164,7 @@ namespace stair_mapping
 
         PointCloudTN::Ptr icp_result_cloud(new PointCloudTN);
         icp.setMaximumIterations(50);
-        icp.setMaxCorrespondenceDistance(0.08);
+        icp.setMaxCorrespondenceDistance(0.15);
         
         icp.setInputSource(p_input_tn);
         icp.setInputTarget(p_target_tn);

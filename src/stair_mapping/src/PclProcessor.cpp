@@ -84,7 +84,7 @@ namespace stair_mapping
 
         // downsampling
         PointCloudT::Ptr p_cloud_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.015);
+        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.02);
         ROS_INFO("After downsample size: %d -> %d", sizes[0], sizes[1]);
 
         p_out_cloud = p_cloud_ds;

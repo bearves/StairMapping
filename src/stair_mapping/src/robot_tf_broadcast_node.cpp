@@ -40,13 +40,14 @@ void poseCallback(const sensor_msgs::ImuConstPtr &msg)
     double r, p, y;
     m.getRPY(r, p, y);
 
+    y = 0;
     if (is_first_msg)
     {
         y_start = y;
+        ROS_INFO("Start yaw angle: %lf", y);
         is_first_msg = false;
     }
-    y = 0;
-    q_corrected.setRPY(-p, r, y);
+    q_corrected.setRPY(-p, r, y-y_start);
     //q_corrected.setRPY(r, p, y);
 
     transformStamped.transform.rotation.x = q_corrected.x();

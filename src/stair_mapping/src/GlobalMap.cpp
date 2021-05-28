@@ -104,6 +104,8 @@ namespace stair_mapping
         auto submap_cnt = submapCount();
         build_map_mutex_.unlock();
 
+        
+
         // since only the old data are read and never changed
         // the map building process is thread safe
         for(int i = 0; i < submap_cnt; i++)
@@ -172,7 +174,7 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 64, 64, 1;
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 36, 36, 16;
             pg_.addEdge(EDGE_TYPE::ROTATION, 0, i+1, t_edge, ifm);
         }
 
