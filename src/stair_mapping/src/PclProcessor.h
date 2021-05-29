@@ -10,8 +10,7 @@
 #include <nav_msgs/Odometry.h>
 #include <eigen3/Eigen/Dense>
 #include <thread>
-#include "PointType.h"
-#include "GlobalMap.h"
+#include "TerrainMapper.h"
 #include <mutex>
 
 namespace stair_mapping 
@@ -36,17 +35,15 @@ namespace stair_mapping
         std::thread th_;        
         std::mutex odom_msg_mtx_;
 
-        GlobalMap global_map_;
         Eigen::Matrix4d current_odom_mat_;
+        TerrainMapper terrain_mapper_;
 
         void pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
         void odomMsgCallback(const nav_msgs::OdometryConstPtr &msg);
 
-        void preProcess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
-        void submapMatch(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
-        void buildMap();
+        Eigen::Matrix4d getPoseMatrix(const nav_msgs::Odometry &odom);
+
         void publishMapTf();
         void publishMap();
-        Eigen::Matrix4d getPoseMatrix(const nav_msgs::Odometry &odom);
     };
 }

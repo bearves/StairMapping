@@ -12,6 +12,7 @@
 #include "pcl/common/transforms.h"
 #include "pcl/conversions.h"
 #include "pcl_ros/point_cloud.h"
+#include <eigen3/Eigen/Dense>
 
 ros::Subscriber pcl_sub;
 ros::Publisher pcl_pub;
@@ -21,6 +22,7 @@ bool is_first_msg = true;
 
 void poseCallback(const sensor_msgs::ImuConstPtr &msg)
 {
+    using namespace Eigen;
     static tf2_ros::TransformBroadcaster br;
     geometry_msgs::TransformStamped transformStamped;
 
@@ -31,23 +33,26 @@ void poseCallback(const sensor_msgs::ImuConstPtr &msg)
     transformStamped.transform.translation.x = 0;
     transformStamped.transform.translation.y = 0;
     transformStamped.transform.translation.z = 0;
-    tf2::Quaternion q, q_corrected;
-    q.setX(msg->orientation.x);
-    q.setY(msg->orientation.y);
-    q.setZ(msg->orientation.z);
-    q.setW(msg->orientation.w);
-    tf2::Matrix3x3 m(q);
-    double r, p, y;
-    m.getRPY(r, p, y);
+    Quaterniond q_imu, q_body, q_corrected;
+    q_imu.w() = msg->orientation.w; 
+    q_imu.x() = msg->orientation.x; 
+    q_imu.y() = msg->orientation.y; 
+    q_imu.z() = msg->orientation.z; 
 
-    y = 0;
+    AngleAxisd rot_z(AngleAxisd(-M_PI/2,Vector3d::UnitZ()));
+    q_body = q_imu * rot_z;
+
+    //y = 0;
     if (is_first_msg)
     {
-        y_start = y;
-        ROS_INFO("Start yaw angle: %lf", y);
+        auto euler = q_body.toRotationMatrix().eulerAngles(2,1,0);
+        y_start = euler[0]; // init yaw angle
+        ROS_INFO("Start yaw angle: %lf", y_start);
         is_first_msg = false;
     }
-    q_corrected.setRPY(-p, r, y-y_start);
+    AngleAxisd rot_z0(AngleAxisd(-y_start,Vector3d::UnitZ()));
+    q_corrected = rot_z0 * q_body;
+
     //q_corrected.setRPY(r, p, y);
 
     transformStamped.transform.rotation.x = q_corrected.x();
