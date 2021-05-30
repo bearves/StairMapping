@@ -83,8 +83,11 @@ link_directories(
 add_executable(img_process_node src/img_process_node.cpp src/ImageProcessor.cpp)
 add_executable(clip_pcl_data_node src/clip_pcl_data_node.cpp)
 add_executable(robot_tf_broadcast_node src/robot_tf_broadcast_node.cpp)
-add_executable(pcl_process_node src/pcl_process_node.cpp src/PclProcessor.cpp src/TerrainMapper.cpp src/SubMap.cpp src/GlobalMap.cpp src/PreProcessor.cpp src/PoseGraph.cpp)
 add_executable(test_pose_graph src/test_pose_graph.cpp src/PoseGraph.cpp)
+
+set(PCL_PROCESS_SOURCE src/pcl_process_node.cpp src/PclProcessor.cpp src/TerrainMapper.cpp src/SubMap.cpp)
+set(PCL_PROCESS_SOURCE ${PCL_PROCESS_SOURCE} src/GlobalMap.cpp src/PreProcessor.cpp src/PoseGraph.cpp src/ElevationGrid.cpp)
+add_executable(pcl_process_node ${PCL_PROCESS_SOURCE})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

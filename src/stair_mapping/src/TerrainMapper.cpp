@@ -3,6 +3,10 @@
 namespace stair_mapping
 {
     TerrainMapper::TerrainMapper()
+        : global_opt_points_(new PointCloudT),
+          global_raw_points_(new PointCloudT),
+          ele_grid_(5.0, 10.0, 0.02, -10),
+          global_height_map_(new PointCloudT)
     {
     }
 
@@ -118,6 +122,14 @@ namespace stair_mapping
         // concat all submaps together 
         auto submap_cnt = global_map_.updateGlobalMapPoints();
         ROS_INFO("Submap count: %ld", submap_cnt);
+
+        const PointCloudT::Ptr raw_pc = global_map_.getGlobalMapRawPoints();
+        PreProcessor::downSample(raw_pc, global_raw_points_, 0.02, 1);
+
+        const PointCloudT::Ptr opt_pc = global_map_.getGlobalMapOptPoints();
+        PreProcessor::downSample(opt_pc, global_opt_points_, 0.02, 2);
+
+        ele_grid_.update(global_opt_points_);
     }
 
     Eigen::Matrix4d TerrainMapper::getLastSubMapRawTf()
@@ -132,12 +144,18 @@ namespace stair_mapping
 
     const PointCloudT::Ptr TerrainMapper::getGlobalMapRawPoints()
     {
-        return global_map_.getGlobalMapRawPoints();
+        return global_raw_points_;
     }
 
     const PointCloudT::Ptr TerrainMapper::getGlobalMapOptPoints()
     {
-        return global_map_.getGlobalMapOptPoints();
+        return global_opt_points_;
+    }
+
+    const PointCloudT::Ptr TerrainMapper::getElevationGridPoints()
+    {
+        ele_grid_.getPclFromHeightMap(global_height_map_);
+        return global_height_map_;
     }
 
 } // namespace stair_mapping

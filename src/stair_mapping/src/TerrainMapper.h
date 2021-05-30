@@ -2,6 +2,7 @@
 
 #include "PointType.h"
 #include "GlobalMap.h"
+#include "ElevationGrid.h"
 
 namespace stair_mapping
 {
@@ -24,9 +25,15 @@ namespace stair_mapping
 
         const PointCloudT::Ptr getGlobalMapRawPoints();
         const PointCloudT::Ptr getGlobalMapOptPoints();
+        const PointCloudT::Ptr getElevationGridPoints();
 
     private:
         GlobalMap global_map_;
+        PointCloudT::Ptr global_raw_points_;
+        PointCloudT::Ptr global_opt_points_;
+
+        ElevationGrid ele_grid_; 
+        PointCloudT::Ptr global_height_map_;
     };
 
 } // namespace stair_mapping

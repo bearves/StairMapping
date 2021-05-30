@@ -1,4 +1,5 @@
 #include "GlobalMap.h"
+#include <pcl/octree/octree_pointcloud_density.h>
 
 namespace stair_mapping
 {
@@ -103,8 +104,6 @@ namespace stair_mapping
         build_map_mutex_.lock();
         auto submap_cnt = submapCount();
         build_map_mutex_.unlock();
-
-        
 
         // since only the old data are read and never changed
         // the map building process is thread safe

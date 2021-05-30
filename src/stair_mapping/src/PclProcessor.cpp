@@ -14,6 +14,7 @@ namespace stair_mapping
         submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
         global_map_opt_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_opt_points", 1);
         global_map_raw_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_raw_points", 1);
+        global_height_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_height_map", 1);
         odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &PclProcessor::odomMsgCallback, this);
         pcl_sub_ = node.subscribe("transformed_points", 1, &PclProcessor::pclMsgCallback, this);
         //height_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("height_map_pcl", 1);
@@ -99,22 +100,25 @@ namespace stair_mapping
     void PclProcessor::publishMap()
     {
         sensor_msgs::PointCloud2 opt_pc2;
-        PointCloudT::Ptr p_global_opt_ds(new PointCloudT);
         auto p_global_opt_pc = terrain_mapper_.getGlobalMapOptPoints();
-        PreProcessor::downSample(p_global_opt_pc, p_global_opt_ds, 0.01);
-        pcl::toROSMsg(*p_global_opt_ds, opt_pc2);
+        pcl::toROSMsg(*p_global_opt_pc, opt_pc2);
         opt_pc2.header.frame_id = "map";
         opt_pc2.header.stamp = ros::Time::now();
         global_map_opt_pub_.publish(opt_pc2);
 
         sensor_msgs::PointCloud2 raw_pc2;
-        PointCloudT::Ptr p_global_raw_ds(new PointCloudT);
         auto p_global_raw_pc = terrain_mapper_.getGlobalMapRawPoints();
-        PreProcessor::downSample(p_global_raw_pc, p_global_raw_ds, 0.01);
-        pcl::toROSMsg(*p_global_raw_ds, raw_pc2);
+        pcl::toROSMsg(*p_global_raw_pc, raw_pc2);
         raw_pc2.header.frame_id = "map";
         raw_pc2.header.stamp = ros::Time::now();
         global_map_raw_pub_.publish(raw_pc2);
+
+        sensor_msgs::PointCloud2 elevation_pc2;
+        auto p_elevation_pc = terrain_mapper_.getElevationGridPoints();
+        pcl::toROSMsg(*p_elevation_pc, elevation_pc2);
+        elevation_pc2.header.frame_id = "map";
+        elevation_pc2.header.stamp = ros::Time::now();
+        global_height_map_pub_.publish(elevation_pc2);
     }
 
     void PclProcessor::publishMapTf()

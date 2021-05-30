@@ -5,11 +5,16 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <Eigen/Dense>
 
-Eigen::Vector2i PreProcessor::downSample(const PointCloudT::Ptr p_input_cloud, PointCloudT::Ptr p_output_cloud, double leaf_size)
+Eigen::Vector2i PreProcessor::downSample(
+    const PointCloudT::Ptr p_input_cloud, 
+    PointCloudT::Ptr p_output_cloud, 
+    double leaf_size,
+    uint minimum_point_per_voxel)
 {
     pcl::VoxelGrid<PointT> vg;
     vg.setInputCloud(p_input_cloud);
     vg.setLeafSize(leaf_size, leaf_size, leaf_size);
+    vg.setMinimumPointsNumberPerVoxel(minimum_point_per_voxel);
     vg.filter(*p_output_cloud);
     int original_size = p_input_cloud->width * p_input_cloud->height;
     int resultant_size = p_output_cloud->width * p_output_cloud->height;

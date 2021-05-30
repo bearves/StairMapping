@@ -12,11 +12,9 @@ class GlobalMap
 public:
     GlobalMap();
 
-    SubMap::Ptr getLastSubMap();
-    Eigen::Matrix4d getLastSubMapRawTf();
-    Eigen::Matrix4d getLastSubMapOptTf();
-
     std::size_t submapCount();
+
+    SubMap::Ptr getLastSubMap();
 
     void addNewSubmap(
         SubMap::Ptr sm, 
@@ -27,8 +25,10 @@ public:
     );
 
     bool runGlobalPoseOptimizer();
-    
     std::size_t updateGlobalMapPoints();
+
+    Eigen::Matrix4d getLastSubMapRawTf();
+    Eigen::Matrix4d getLastSubMapOptTf();
 
     const PointCloudT::Ptr getGlobalMapRawPoints();
     const PointCloudT::Ptr getGlobalMapOptPoints();
