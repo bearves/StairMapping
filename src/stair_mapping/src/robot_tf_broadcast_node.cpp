@@ -39,6 +39,7 @@ void poseCallback(const sensor_msgs::ImuConstPtr &msg)
     q_imu.y() = msg->orientation.y; 
     q_imu.z() = msg->orientation.z; 
 
+    // rotate from imu's cs to the body's cs
     AngleAxisd rot_z(AngleAxisd(-M_PI/2,Vector3d::UnitZ()));
     q_body = q_imu * rot_z;
 
@@ -50,10 +51,9 @@ void poseCallback(const sensor_msgs::ImuConstPtr &msg)
         ROS_INFO("Start yaw angle: %lf", y_start);
         is_first_msg = false;
     }
+    // remove the yaw start rotation
     AngleAxisd rot_z0(AngleAxisd(-y_start,Vector3d::UnitZ()));
     q_corrected = rot_z0 * q_body;
-
-    //q_corrected.setRPY(r, p, y);
 
     transformStamped.transform.rotation.x = q_corrected.x();
     transformStamped.transform.rotation.y = q_corrected.y();
@@ -75,10 +75,21 @@ void pclDataCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
     try
     {
         //pcl_ros::transformPointCloud("base_world", *msg, transformed_pcl2, buffer);
+        ros::Duration timeout(0.3);
         ros::Duration deltaT(0.8);
-        auto t = buffer.lookupTransform("base_world", msg->header.frame_id, ros::Time(0));
+        auto t_align = msg->header.stamp + deltaT;
+        geometry_msgs::TransformStamped transform;
+        //if (buffer.canTransform("base_world", msg->header.frame_id, t_align, timeout))
+        if (0)
+        {
+            transform = buffer.lookupTransform("base_world", msg->header.frame_id, t_align);
+        }
+        else
+        {
+            transform = buffer.lookupTransform("base_world", msg->header.frame_id, ros::Time(0));
+        }
         Eigen::Matrix4f tm;
-        pcl_ros::transformAsMatrix(t.transform, tm);
+        pcl_ros::transformAsMatrix(transform.transform, tm);
         pcl_ros::transformPointCloud(tm, *msg, transformed_pcl2);
     }
     catch (tf2::TransformException &ex)

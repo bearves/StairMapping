@@ -83,6 +83,9 @@ namespace stair_mapping
             case EDGE_TYPE::ROTATION:
                 cost_function = PoseGraph3dRotationErrorTerm::Create(edge.t_be, sqrt_information.block<3,3>(3,3));
                 break;
+            case EDGE_TYPE::ABS_ROTATION:
+                cost_function = PoseGraph3dAbsoluteRotationErrorTerm::Create(edge.t_be, sqrt_information.block<3,3>(3,3));
+                break;
             
             default:
                 cost_function = nullptr;

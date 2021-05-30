@@ -64,12 +64,13 @@ namespace stair_mapping
         *p_submap_points_ = *p_all_points;
     }
 
-    double SubMap::match(PointCloudT frame, 
+    double SubMap::match(
+        const PointCloudT::Ptr& frame, 
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& t_match_result,
         InfoMatrix& info_match_result)
     {
-        int point_counts = frame.width * frame.height;
+        int point_counts = frame->width * frame->height;
         
         if (point_counts < 300)
         {
@@ -88,7 +89,7 @@ namespace stair_mapping
             t_match_result = init_guess;
             // TODO: ICP/NDT match here
             double score = matchIcp(
-                frame.makeShared(), 
+                frame, 
                 p_submap_points_, 
                 init_guess, 
                 t_match_result,
@@ -190,7 +191,7 @@ namespace stair_mapping
         Eigen::Affine3d err = af_res * af_ini.inverse();
         double lin_err = err.translation().norm();
         double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
-        if (lin_err > 0.2 || 
+        if (lin_err > 0.1 || 
             ang_err > 0.2)
         {
             ROS_ERROR("Large match error detected: %lf %lf", lin_err, ang_err);

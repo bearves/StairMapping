@@ -10,7 +10,8 @@ enum EDGE_TYPE
 {
     TRANSFORM = 0,
     TRANSLATION = 1,
-    ROTATION = 2
+    ROTATION = 2,
+    ABS_ROTATION = 3
 };
 
 // The constraint between two vertices in the pose graph. The constraint is the

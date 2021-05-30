@@ -258,5 +258,56 @@ private:
     // The square root of the measurement information matrix.
     const Eigen::Matrix<double, 3, 3> sqrt_information_;
 };
+
+class PoseGraph3dAbsoluteRotationErrorTerm
+{
+public:
+    PoseGraph3dAbsoluteRotationErrorTerm(const Pose3d &t_ab_measured,
+                            const Eigen::Matrix<double, 3, 3> &sqrt_information)
+        : t_ab_measured_(t_ab_measured), sqrt_information_(sqrt_information) {}
+
+    template <typename T>
+    bool operator()(const T *const p_a_ptr,
+                    const T *const q_a_ptr,
+                    const T *const p_b_ptr,
+                    const T *const q_b_ptr,
+                    T *residuals_ptr) const
+    {
+        Eigen::Map<const Eigen::Quaternion<T>> q_b(q_b_ptr);
+
+        // Compute the relative transformation between the frame B and the world.
+        Eigen::Quaternion<T> q_b_estimated = q_b;
+
+        // Compute the error of the frame B to the world
+        Eigen::Quaternion<T> delta_q =
+            t_ab_measured_.q.template cast<T>() * q_b_estimated.conjugate();
+
+        // Compute the residuals.
+        // [ orientation (3x1)] = [ 2 * delta_q(0:2) ]
+        Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+        residuals = T(2.0) * delta_q.vec();
+
+        // Scale the residuals by the measurement uncertainty.
+        residuals.applyOnTheLeft(sqrt_information_.template cast<T>());
+
+        return true;
+    }
+
+    static ceres::CostFunction *Create(
+        const Pose3d &t_ab_measured,
+        const Eigen::Matrix<double, 3, 3> &sqrt_information)
+    {
+        return new ceres::AutoDiffCostFunction<PoseGraph3dAbsoluteRotationErrorTerm, 3, 3, 4, 3, 4>(
+            new PoseGraph3dAbsoluteRotationErrorTerm(t_ab_measured, sqrt_information));
+    }
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+private:
+    // The measurement for the position of B relative to A in the A frame.
+    const Pose3d t_ab_measured_;
+    // The square root of the measurement information matrix.
+    const Eigen::Matrix<double, 3, 3> sqrt_information_;
+};
     
 } // namespace stair_mapping

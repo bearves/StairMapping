@@ -19,7 +19,7 @@ public:
     void init();
 
     void addFrame(
-        PointCloudT frame, 
+        PointCloudT frame,
         Eigen::Matrix4d t_f2sm, 
         Eigen::Matrix4d t_frame_odom);
 
@@ -27,7 +27,7 @@ public:
     bool isEmpty();
 
     double match( 
-        PointCloudT frame, 
+        const PointCloudT::Ptr& frame, 
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& t_match_result,
         InfoMatrix& info_match_result);

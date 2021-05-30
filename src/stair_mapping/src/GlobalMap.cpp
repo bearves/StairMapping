@@ -174,8 +174,8 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 36, 36, 16;
-            pg_.addEdge(EDGE_TYPE::ROTATION, 0, i+1, t_edge, ifm);
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 64, 64, 16;
+            pg_.addEdge(EDGE_TYPE::ABS_ROTATION, 0, i+1, t_edge, ifm);
         }
 
         // solve

@@ -27,8 +27,7 @@ namespace stair_mapping
     {
         using namespace Eigen;
 
-        int submap_store_cap = 1;
-
+        int submap_store_cap = 2;
 
         // FrontEnd
         // scan-to-submap matcher
@@ -55,7 +54,7 @@ namespace stair_mapping
 
         // match current frame to the last submap
         double score = 1e8;
-        double SUCCESS_SCORE = 2;
+        double SUCCESS_SCORE = 0.1;
 
         Matrix4d t_guess = last_sm->getRelativeTfGuess(t_frame_odom);
         Matrix4d t_frame_to_last_map = t_guess;
@@ -71,7 +70,7 @@ namespace stair_mapping
 
         try
         {
-            score = last_sm->match(*p_in_cloud, t_guess, t_frame_to_last_map, info_mat);
+            score = last_sm->match(p_in_cloud, t_guess, t_frame_to_last_map, info_mat);
         }
         catch (std::runtime_error &ex)
         {
