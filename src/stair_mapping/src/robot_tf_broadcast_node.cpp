@@ -79,8 +79,8 @@ void pclDataCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
         ros::Duration deltaT(0.8);
         auto t_align = msg->header.stamp + deltaT;
         geometry_msgs::TransformStamped transform;
-        if (buffer.canTransform("base_world", msg->header.frame_id, t_align, timeout))
-        //if (0)
+        //if (buffer.canTransform("base_world", msg->header.frame_id, t_align, timeout))
+        if (0)
         {
             transform = buffer.lookupTransform("base_world", msg->header.frame_id, t_align);
         }

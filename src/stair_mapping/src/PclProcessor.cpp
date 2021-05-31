@@ -38,7 +38,7 @@ namespace stair_mapping
 
         pcl::toROSMsg(*p_pre_cloud, pre_out_cloud2);
         pre_out_cloud2.header.frame_id = "base_world";
-        pre_out_cloud2.header.stamp = ros::Time::now();
+        pre_out_cloud2.header.stamp = msg->header.stamp;
         preprocess_pub_.publish(pre_out_cloud2);
 
         PointCloudT::Ptr p_submap_cloud(new PointCloudT);
@@ -50,7 +50,7 @@ namespace stair_mapping
 
         pcl::toROSMsg(*p_submap_cloud, submap_out_cloud2);
         submap_out_cloud2.header.frame_id = "base_world";
-        submap_out_cloud2.header.stamp = ros::Time::now();
+        submap_out_cloud2.header.stamp = msg->header.stamp;
         submap_pub_.publish(submap_out_cloud2);
 
     }

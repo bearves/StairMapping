@@ -286,6 +286,7 @@ public:
         // [ orientation (3x1)] = [ 2 * delta_q(0:2) ]
         Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
         residuals = T(2.0) * delta_q.vec();
+        residuals[2] = T(0);
 
         // Scale the residuals by the measurement uncertainty.
         residuals.applyOnTheLeft(sqrt_information_.template cast<T>());

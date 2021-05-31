@@ -164,8 +164,8 @@ namespace stair_mapping
         pcl::IterativeClosestPointWithNormals<PointTN, PointTN> icp;
 
         PointCloudTN::Ptr icp_result_cloud(new PointCloudTN);
-        icp.setMaximumIterations(50);
-        icp.setMaxCorrespondenceDistance(0.15);
+        icp.setMaximumIterations(30);
+        icp.setMaxCorrespondenceDistance(0.08);
         
         icp.setInputSource(p_input_tn);
         icp.setInputTarget(p_target_tn);
@@ -210,7 +210,7 @@ namespace stair_mapping
         pcl::NormalEstimation<PointT, pcl::Normal> ne;
         ne.setSearchMethod(p_tree);
         ne.setInputCloud(input_cloud);
-        ne.setKSearch(10);
+        ne.setKSearch(20);
         ne.compute(*normal_cloud);
     }
 
