@@ -95,10 +95,13 @@ namespace stair_mapping
                 t_match_result,
                 info_match_result);
 
-            std::cout << "Score:" << score << std::endl;
-            std::cout << "Init guess:\n" << init_guess << std::endl;
-            std::cout << "Registration result:\n" << t_match_result << std::endl;
-            std::cout << "Info matrix eig:\n" << info_match_result.eigenvalues().real() << std::endl;
+            std::string match_msg;
+            std::stringstream ss(match_msg);
+            ss << "Score:" << score << std::endl;
+            ss << "Init guess:\n" << init_guess << std::endl;
+            ss << "Registration result:\n" << t_match_result << std::endl;
+            ss << "Info matrix eig:\n" << info_match_result.eigenvalues().real() << std::endl;
+            ROS_INFO("%s", match_msg.c_str());
             //t_match_result.block<3,3>(0, 0) = Eigen::Matrix3d::Identity();
 
             //t_match_result = init_guess;
@@ -139,11 +142,11 @@ namespace stair_mapping
         double x_crop_min = std::max(min_input.x, min_target.x) - loose;
 
         PreProcessor::crop(p_input_cloud_init, p_input_cloud_cr, 
-            Eigen::Vector3f(x_crop_min, -0.35, z_crop_min), 
-            Eigen::Vector3f(x_crop_max, 0.35, z_crop_max));
+            Eigen::Vector3f(x_crop_min, -0.4, z_crop_min), 
+            Eigen::Vector3f(x_crop_max, 0.4, z_crop_max));
         PreProcessor::crop(target_cloud, p_target_cloud_cr, 
-            Eigen::Vector3f(x_crop_min, -0.35, z_crop_min), 
-            Eigen::Vector3f(x_crop_max, 0.35, z_crop_max));
+            Eigen::Vector3f(x_crop_min, -0.4, z_crop_min), 
+            Eigen::Vector3f(x_crop_max, 0.4, z_crop_max));
 
         if (p_input_cloud_cr->empty() || p_target_cloud_cr->empty())
         {
@@ -172,7 +175,7 @@ namespace stair_mapping
 
         icp.align(*icp_result_cloud);
         transform_info = computeInfomation(icp_result_cloud, p_target_tn);
-        std::cout << "Applied ICP iteration(s) in " << time.toc() << " ms" << std::endl;
+        ROS_INFO("Applied ICP iteration(s) in %lf ms", time.toc());
 
         if (icp.hasConverged())
         {
@@ -180,7 +183,7 @@ namespace stair_mapping
         }
         else
         {
-            std::cout << "\nICP has not converged.\n";
+            ROS_WARN("\nICP has not converged.\n");
             transform_result = init_guess;
         }
         // check the error of the result and init guess
