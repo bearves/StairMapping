@@ -43,7 +43,7 @@ namespace stair_mapping
 
         Eigen::Matrix4d getPoseMatrix(const nav_msgs::Odometry &odom);
 
-        void publishMapTf();
+        void publishCorrectedTf(const ros::Time& stamp, const Eigen::Matrix4d& original_robot_tf);
         void publishMap();
     };
 }

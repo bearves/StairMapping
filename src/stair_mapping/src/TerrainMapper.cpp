@@ -6,7 +6,8 @@ namespace stair_mapping
         : global_opt_points_(new PointCloudT),
           global_raw_points_(new PointCloudT),
           ele_grid_(5.0, 10.0, 0.02, -10),
-          global_height_map_(new PointCloudT)
+          global_height_map_(new PointCloudT),
+          correct_tf_(Eigen::Matrix4d::Identity())
     {
     }
 
@@ -14,11 +15,11 @@ namespace stair_mapping
     {
         // crop
         PointCloudT::Ptr p_cloud_cr(new PointCloudT);
-        PreProcessor::crop(p_in_cloud, p_cloud_cr, Eigen::Vector3f(0, -0.5, -2), Eigen::Vector3f(2.0, 0.5, 3));
+        PreProcessor::crop(p_in_cloud, p_cloud_cr, Eigen::Vector3f(0, -0.5, -2), Eigen::Vector3f(3.0, 0.5, 3));
 
         // downsampling
         PointCloudT::Ptr p_cloud_ds(new PointCloudT);
-        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.02);
+        Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.03);
         ROS_INFO("After downsample size: %d -> %d", sizes[0], sizes[1]);
 
         p_out_cloud = p_cloud_ds;
@@ -119,6 +120,7 @@ namespace stair_mapping
     void TerrainMapper::buildGlobalMap()
     {
         global_map_.runGlobalPoseOptimizer();
+        correct_tf_ = global_map_.getCorrectTf();
         // concat all submaps together 
         auto submap_cnt = global_map_.updateGlobalMapPoints();
         ROS_INFO("Submap count: %ld", submap_cnt);
@@ -140,6 +142,11 @@ namespace stair_mapping
     Eigen::Matrix4d TerrainMapper::getLastSubMapOptTf()
     {
         return global_map_.getLastSubMapOptTf();
+    }
+
+    Eigen::Matrix4d TerrainMapper::getCorrectTf()
+    {
+        return correct_tf_;
     }
 
     const PointCloudT::Ptr TerrainMapper::getGlobalMapRawPoints()
