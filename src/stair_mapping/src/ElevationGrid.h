@@ -28,9 +28,16 @@ private:
 
     Eigen::MatrixXd elevation_grid_;
 
+    inline bool isUnknown(int row, int col)
+    {
+        return elevation_grid_(row, col) < (default_height_ + 0.01);
+    }
+
     void generateGrid(const PointCloudT::Ptr &p_input_cloud);
     void fillUnknowCell();
+    void smoothGrid();
     void fillGap(int row, int start_col, int end_col, double height);
+    void applySmoothFilter(int row, int col);
 };
 
 } // namespace stair_mapping
