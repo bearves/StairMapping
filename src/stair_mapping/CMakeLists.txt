@@ -85,9 +85,12 @@ add_executable(clip_pcl_data_node src/clip_pcl_data_node.cpp)
 add_executable(robot_tf_broadcast_node src/robot_tf_broadcast_node.cpp)
 add_executable(test_pose_graph src/test_pose_graph.cpp src/PoseGraph.cpp)
 
-set(PCL_PROCESS_SOURCE src/pcl_process_node.cpp src/PclProcessor.cpp src/TerrainMapper.cpp src/SubMap.cpp)
-set(PCL_PROCESS_SOURCE ${PCL_PROCESS_SOURCE} src/GlobalMap.cpp src/PreProcessor.cpp src/PoseGraph.cpp src/ElevationGrid.cpp)
-add_executable(pcl_process_node ${PCL_PROCESS_SOURCE})
+set(TERRAIN_3D_MAP_SOURCE src/terrain_3d_map_node.cpp src/Terrain3dMapperNode.cpp src/Terrain3dMapper.cpp src/SubMap.cpp)
+set(TERRAIN_3D_MAP_SOURCE ${TERRAIN_3D_MAP_SOURCE} src/GlobalMap.cpp src/PreProcessor.cpp src/PoseGraph.cpp src/ElevationGrid.cpp)
+add_executable(terrain_3d_map_node ${TERRAIN_3D_MAP_SOURCE})
+
+set(HEIGHT_MAP_SOURCE src/height_map_node.cpp src/ElevationGrid.cpp src/HeightMapNode.cpp)
+add_executable(height_map_node ${HEIGHT_MAP_SOURCE})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -106,12 +109,19 @@ target_link_libraries(img_process_node
   ${Eigen3_LIBRARIES}
 )
 
-target_link_libraries(pcl_process_node
+target_link_libraries(terrain_3d_map_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${Eigen3_LIBRARIES}
   ${PCL_LIBRARIES}
   ${CERES_LIBRARIES}
+)
+
+target_link_libraries(height_map_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${Eigen3_LIBRARIES}
+  ${PCL_LIBRARIES}
 )
 
 target_link_libraries(test_pose_graph

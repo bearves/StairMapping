@@ -2,14 +2,13 @@
 
 #include "PointType.h"
 #include "GlobalMap.h"
-#include "ElevationGrid.h"
 
 namespace stair_mapping
 {
-    class TerrainMapper
+    class Terrain3dMapper
     {
     public:
-        TerrainMapper();
+        Terrain3dMapper();
 
         void preprocess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
 
@@ -26,7 +25,6 @@ namespace stair_mapping
 
         const PointCloudT::Ptr getGlobalMapRawPoints();
         const PointCloudT::Ptr getGlobalMapOptPoints();
-        const PointCloudT::Ptr getElevationGridPoints();
 
     private:
         GlobalMap global_map_;
@@ -34,7 +32,6 @@ namespace stair_mapping
         PointCloudT::Ptr global_opt_points_;
         Eigen::Matrix4d correct_tf_;
 
-        ElevationGrid ele_grid_; 
         PointCloudT::Ptr global_height_map_;
     };
 

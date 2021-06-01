@@ -12,7 +12,6 @@
 #include "pcl/common/transforms.h"
 #include "pcl/conversions.h"
 #include "pcl_ros/point_cloud.h"
-#include <eigen3/Eigen/Dense>
 
 ros::Subscriber pcl_sub;
 ros::Publisher pcl_pub;

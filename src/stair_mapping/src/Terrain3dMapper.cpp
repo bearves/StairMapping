@@ -1,17 +1,16 @@
-#include "TerrainMapper.h"
+#include "Terrain3dMapper.h"
 
 namespace stair_mapping
 {
-    TerrainMapper::TerrainMapper()
+    Terrain3dMapper::Terrain3dMapper()
         : global_opt_points_(new PointCloudT),
           global_raw_points_(new PointCloudT),
-          ele_grid_(5.0, 10.0, 0.02, -10),
           global_height_map_(new PointCloudT),
           correct_tf_(Eigen::Matrix4d::Identity())
     {
     }
 
-    void TerrainMapper::preprocess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud)
+    void Terrain3dMapper::preprocess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud)
     {
         // crop
         PointCloudT::Ptr p_cloud_cr(new PointCloudT);
@@ -25,7 +24,7 @@ namespace stair_mapping
         p_out_cloud = p_cloud_ds;
     }
 
-    void TerrainMapper::matchSubmap(
+    void Terrain3dMapper::matchSubmap(
         const PointCloudT::Ptr &p_in_cloud, 
         PointCloudT::Ptr &p_out_cloud, 
         const Eigen::Matrix4d& t_frame_odom)
@@ -117,7 +116,7 @@ namespace stair_mapping
 
         p_out_cloud = current_sm->getSubmapPoints();
     }
-    void TerrainMapper::buildGlobalMap()
+    void Terrain3dMapper::buildGlobalMap()
     {
         global_map_.runGlobalPoseOptimizer();
         correct_tf_ = global_map_.getCorrectTf();
@@ -130,39 +129,31 @@ namespace stair_mapping
 
         const PointCloudT::Ptr opt_pc = global_map_.getGlobalMapOptPoints();
         PreProcessor::downSample(opt_pc, global_opt_points_, 0.02, 2);
-
-        ele_grid_.update(global_opt_points_);
     }
 
-    Eigen::Matrix4d TerrainMapper::getLastSubMapRawTf()
+    Eigen::Matrix4d Terrain3dMapper::getLastSubMapRawTf()
     {
         return global_map_.getLastSubMapRawTf();
     }
 
-    Eigen::Matrix4d TerrainMapper::getLastSubMapOptTf()
+    Eigen::Matrix4d Terrain3dMapper::getLastSubMapOptTf()
     {
         return global_map_.getLastSubMapOptTf();
     }
 
-    Eigen::Matrix4d TerrainMapper::getCorrectTf()
+    Eigen::Matrix4d Terrain3dMapper::getCorrectTf()
     {
         return correct_tf_;
     }
 
-    const PointCloudT::Ptr TerrainMapper::getGlobalMapRawPoints()
+    const PointCloudT::Ptr Terrain3dMapper::getGlobalMapRawPoints()
     {
         return global_raw_points_;
     }
 
-    const PointCloudT::Ptr TerrainMapper::getGlobalMapOptPoints()
+    const PointCloudT::Ptr Terrain3dMapper::getGlobalMapOptPoints()
     {
         return global_opt_points_;
-    }
-
-    const PointCloudT::Ptr TerrainMapper::getElevationGridPoints()
-    {
-        ele_grid_.getPclFromHeightMap(global_height_map_);
-        return global_height_map_;
     }
 
 } // namespace stair_mapping

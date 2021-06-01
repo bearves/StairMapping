@@ -1,13 +1,13 @@
 #include <ros/ros.h>
-#include "PclProcessor.h"
+#include "Terrain3dMapperNode.h"
 
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "pcl_data_process");
     ros::NodeHandle node;
-    stair_mapping::PclProcessor pcl_processor(node);
+    stair_mapping::Terrain3dMapperNode terrain_3d_map_node(node);
     ROS_INFO("Start pcl data node");
-    pcl_processor.startMapServer();
+    terrain_3d_map_node.startMapServer();
     ros::MultiThreadedSpinner s(4); // Use 4 threads
     ros::spin(s);
     return 0;

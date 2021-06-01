@@ -1,4 +1,4 @@
-#include "PclProcessor.h"
+#include "Terrain3dMapperNode.h"
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
@@ -8,20 +8,18 @@
 
 namespace stair_mapping
 {
-    PclProcessor::PclProcessor(ros::NodeHandle& node)
+    Terrain3dMapperNode::Terrain3dMapperNode(ros::NodeHandle& node)
     {
         preprocess_pub_ = node.advertise<sensor_msgs::PointCloud2>("preprocessed_points", 1);
         submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
         global_map_opt_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_opt_points", 1);
         global_map_raw_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_raw_points", 1);
-        global_height_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_height_map", 1);
-        odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &PclProcessor::odomMsgCallback, this);
-        pcl_sub_ = node.subscribe("transformed_points", 1, &PclProcessor::pclMsgCallback, this);
-        //height_map_pub_ = node.advertise<sensor_msgs::PointCloud2>("height_map_pcl", 1);
-        //cost_map_pub_ = node.advertise<nav_msgs::OccupancyGrid>("terrain_cost_map", 1);
+        corrected_odom_pub_ = node.advertise<geometry_msgs::PoseStamped>("corrected_robot_pose", 1);
+        odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &Terrain3dMapperNode::odomMsgCallback, this);
+        pcl_sub_ = node.subscribe("transformed_points", 1, &Terrain3dMapperNode::pclMsgCallback, this);
     }
 
-    void PclProcessor::pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
+    void Terrain3dMapperNode::pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
     {
         using namespace Eigen;
         PointCloudT::Ptr p_in_cloud(new PointCloudT);
@@ -55,7 +53,7 @@ namespace stair_mapping
 
     }
 
-    void PclProcessor::odomMsgCallback(const nav_msgs::OdometryConstPtr &msg)
+    void Terrain3dMapperNode::odomMsgCallback(const nav_msgs::OdometryConstPtr &msg)
     {
         Eigen::Matrix4d pose_mat = getPoseMatrix(*msg);
         odom_msg_mtx_.lock();
@@ -65,7 +63,7 @@ namespace stair_mapping
         publishCorrectedTf(msg->header.stamp, pose_mat);
     }
 
-    Eigen::Matrix4d PclProcessor::getPoseMatrix(const nav_msgs::Odometry &odom)
+    Eigen::Matrix4d Terrain3dMapperNode::getPoseMatrix(const nav_msgs::Odometry &odom)
     {
         using namespace Eigen;
 
@@ -84,7 +82,7 @@ namespace stair_mapping
     }
 
 
-    void PclProcessor::startMapServer()
+    void Terrain3dMapperNode::startMapServer()
     {
         th_ = std::thread([this](){
             ROS_INFO("Map server started");
@@ -98,7 +96,7 @@ namespace stair_mapping
         });
     }
 
-    void PclProcessor::publishMap()
+    void Terrain3dMapperNode::publishMap()
     {
         sensor_msgs::PointCloud2 opt_pc2;
         auto p_global_opt_pc = terrain_mapper_.getGlobalMapOptPoints();
@@ -113,30 +111,31 @@ namespace stair_mapping
         raw_pc2.header.frame_id = "map";
         raw_pc2.header.stamp = ros::Time::now();
         global_map_raw_pub_.publish(raw_pc2);
-
-        sensor_msgs::PointCloud2 elevation_pc2;
-        auto p_elevation_pc = terrain_mapper_.getElevationGridPoints();
-        pcl::toROSMsg(*p_elevation_pc, elevation_pc2);
-        elevation_pc2.header.frame_id = "map";
-        elevation_pc2.header.stamp = ros::Time::now();
-        global_height_map_pub_.publish(elevation_pc2);
     }
 
-    void PclProcessor::publishCorrectedTf(const ros::Time &stamp, const Eigen::Matrix4d &original_robot_tf)
+    void Terrain3dMapperNode::publishCorrectedTf(const ros::Time &stamp, const Eigen::Matrix4d &original_robot_tf)
     {
-        geometry_msgs::TransformStamped transformStamped;
+        geometry_msgs::TransformStamped corrected_tf;
+        geometry_msgs::PoseStamped corrected_pose;
 
         //transformStamped.header.seq = msg->header.seq;
         auto corrector = terrain_mapper_.getCorrectTf();
         Eigen::Affine3d tf_corrected(corrector * original_robot_tf);
-        transformStamped = tf2::eigenToTransform(tf_corrected);
+        corrected_tf = tf2::eigenToTransform(tf_corrected);
 
-        transformStamped.header.stamp = stamp;
-        transformStamped.header.frame_id = "map";
-        transformStamped.child_frame_id = "base_world";
+        corrected_tf.header.stamp = stamp;
+        corrected_tf.header.frame_id = "map";
+        corrected_tf.child_frame_id = "base_world";
 
-        //ROS_INFO("Robot tf: %f %f %f", -p / M_PI * 180, r / M_PI * 180, y / M_PI * 180);
-        br_.sendTransform(transformStamped);
+        corrected_pose.header.stamp = stamp;
+        corrected_pose.header.frame_id = "map";
+        corrected_pose.pose.position.x = corrected_tf.transform.translation.x;
+        corrected_pose.pose.position.y = corrected_tf.transform.translation.y;
+        corrected_pose.pose.position.z = corrected_tf.transform.translation.z;
+        corrected_pose.pose.orientation = corrected_tf.transform.rotation;
+
+        corrected_odom_pub_.publish(corrected_pose);
+        br_.sendTransform(corrected_tf);
     }
 
 }
