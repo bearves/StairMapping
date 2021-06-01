@@ -27,7 +27,7 @@ namespace stair_mapping
         PointCloudT::Ptr p_in_cloud(new PointCloudT);
         PointCloudT::Ptr p_pre_cloud(new PointCloudT);
 
-        ROS_INFO("Realsence msg received");
+        ROS_INFO("Realsense msg received");
 
         sensor_msgs::PointCloud2 pre_out_cloud2;
         sensor_msgs::PointCloud2 submap_out_cloud2;
@@ -61,6 +61,8 @@ namespace stair_mapping
         odom_msg_mtx_.lock();
         current_odom_mat_ = pose_mat;
         odom_msg_mtx_.unlock();
+
+        publishCorrectedTf(msg->header.stamp, pose_mat);
     }
 
     Eigen::Matrix4d PclProcessor::getPoseMatrix(const nav_msgs::Odometry &odom)
@@ -91,7 +93,6 @@ namespace stair_mapping
             {
                 terrain_mapper_.buildGlobalMap();
                 publishMap();
-                publishMapTf();
                 map_publish_rate.sleep();
             }
         });
@@ -121,14 +122,16 @@ namespace stair_mapping
         global_height_map_pub_.publish(elevation_pc2);
     }
 
-    void PclProcessor::publishMapTf()
+    void PclProcessor::publishCorrectedTf(const ros::Time &stamp, const Eigen::Matrix4d &original_robot_tf)
     {
         geometry_msgs::TransformStamped transformStamped;
 
         //transformStamped.header.seq = msg->header.seq;
-        Eigen::Affine3d last_tf(terrain_mapper_.getLastSubMapOptTf());
-        transformStamped = tf2::eigenToTransform(last_tf);
-        transformStamped.header.stamp = ros::Time::now();
+        auto corrector = terrain_mapper_.getCorrectTf();
+        Eigen::Affine3d tf_corrected(corrector * original_robot_tf);
+        transformStamped = tf2::eigenToTransform(tf_corrected);
+
+        transformStamped.header.stamp = stamp;
         transformStamped.header.frame_id = "map";
         transformStamped.child_frame_id = "base_world";
 

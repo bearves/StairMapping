@@ -82,6 +82,29 @@ namespace stair_mapping
         return last_opt_tf;
     }
 
+    Eigen::Matrix4d GlobalMap::getCorrectTf()
+    {
+        Eigen::Matrix4d last_opt_tf;
+        Eigen::Matrix4d last_robot_imu_tf;
+
+        build_map_mutex_.lock();
+        if (submaps_.size() == 0 )
+        {
+            last_opt_tf = Eigen::Matrix4d::Identity();
+            last_robot_imu_tf = last_opt_tf;
+        }
+        else
+        {
+            last_opt_tf = T_m2gm_opt_[T_m2gm_opt_.size() - 1];
+            last_robot_imu_tf = T_m2gm_imu_[T_m2gm_imu_.size() - 1];
+        }
+        build_map_mutex_.unlock();
+
+        Eigen::Affine3d r(last_robot_imu_tf);
+
+        return last_opt_tf * r.inverse().matrix();
+    }
+
     const PointCloudT::Ptr GlobalMap::getGlobalMapRawPoints()
     {
         return p_global_map_raw_points_;
@@ -91,6 +114,7 @@ namespace stair_mapping
     {
         return p_global_map_opt_points_;
     }
+
 
     std::size_t GlobalMap::updateGlobalMapPoints()
     {

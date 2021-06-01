@@ -29,6 +29,7 @@ public:
 
     Eigen::Matrix4d getLastSubMapRawTf();
     Eigen::Matrix4d getLastSubMapOptTf();
+    Eigen::Matrix4d getCorrectTf();
 
     const PointCloudT::Ptr getGlobalMapRawPoints();
     const PointCloudT::Ptr getGlobalMapOptPoints();

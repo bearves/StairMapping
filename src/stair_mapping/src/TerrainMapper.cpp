@@ -6,7 +6,8 @@ namespace stair_mapping
         : global_opt_points_(new PointCloudT),
           global_raw_points_(new PointCloudT),
           ele_grid_(5.0, 10.0, 0.02, -10),
-          global_height_map_(new PointCloudT)
+          global_height_map_(new PointCloudT),
+          correct_tf_(Eigen::Matrix4d::Identity())
     {
     }
 
@@ -119,6 +120,7 @@ namespace stair_mapping
     void TerrainMapper::buildGlobalMap()
     {
         global_map_.runGlobalPoseOptimizer();
+        correct_tf_ = global_map_.getCorrectTf();
         // concat all submaps together 
         auto submap_cnt = global_map_.updateGlobalMapPoints();
         ROS_INFO("Submap count: %ld", submap_cnt);
@@ -140,6 +142,11 @@ namespace stair_mapping
     Eigen::Matrix4d TerrainMapper::getLastSubMapOptTf()
     {
         return global_map_.getLastSubMapOptTf();
+    }
+
+    Eigen::Matrix4d TerrainMapper::getCorrectTf()
+    {
+        return correct_tf_;
     }
 
     const PointCloudT::Ptr TerrainMapper::getGlobalMapRawPoints()
