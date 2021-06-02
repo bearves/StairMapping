@@ -169,6 +169,7 @@ namespace stair_mapping
         PointCloudTN::Ptr icp_result_cloud(new PointCloudTN);
         icp.setMaximumIterations(20);
         icp.setMaxCorrespondenceDistance(0.08);
+        icp.setTransformationEpsilon(1e-6);
         
         icp.setInputSource(p_input_tn);
         icp.setInputTarget(p_target_tn);

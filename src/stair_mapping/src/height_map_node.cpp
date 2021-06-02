@@ -7,6 +7,7 @@ int main(int argc, char **argv)
     ROS_INFO("Height map server");
     ros::NodeHandle node;
     stair_mapping::HeightMapNode height_map_node(node);
+    height_map_node.publishGroundTruth();
 
     ros::MultiThreadedSpinner s(2); // Use 4 threads
     ros::spin(s);
