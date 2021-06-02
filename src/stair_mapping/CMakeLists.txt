@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2
   pcl_ros
   message_generation
+  mini_bridge
 )
 
 find_package(cmake_modules REQUIRED)
@@ -81,11 +82,11 @@ link_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(img_process_node src/img_process_node.cpp src/ImageProcessor.cpp)
 add_executable(clip_pcl_data_node src/clip_pcl_data_node.cpp)
-add_executable(robot_tf_broadcast_node src/robot_tf_broadcast_node.cpp)
+add_executable(robot_tf_broadcast_node src/robot_tf_broadcast_node.cpp src/RobotTfBroadcastNode.cpp)
 add_executable(test_pose_graph src/test_pose_graph.cpp src/PoseGraph.cpp)
 
 set(TERRAIN_3D_MAP_SOURCE src/terrain_3d_map_node.cpp src/Terrain3dMapperNode.cpp src/Terrain3dMapper.cpp src/SubMap.cpp)
-set(TERRAIN_3D_MAP_SOURCE ${TERRAIN_3D_MAP_SOURCE} src/GlobalMap.cpp src/PreProcessor.cpp src/PoseGraph.cpp src/ElevationGrid.cpp)
+set(TERRAIN_3D_MAP_SOURCE ${TERRAIN_3D_MAP_SOURCE} src/GlobalMap.cpp src/PreProcessor.cpp src/PoseGraph.cpp)
 add_executable(terrain_3d_map_node ${TERRAIN_3D_MAP_SOURCE})
 
 set(HEIGHT_MAP_SOURCE src/height_map_node.cpp src/ElevationGrid.cpp src/HeightMapNode.cpp)
