@@ -28,6 +28,9 @@ private:
     double y_start_ = 0;
     bool is_first_msg_ = true;
 
+    Eigen::Vector3d imu_calibrate_;
+    double cali_r, cali_p, cali_y;
+
     Eigen::Matrix<double, 3, 6> hip_pos_;
     Eigen::Matrix<double, 3, 3> hip_cs_[6];
 

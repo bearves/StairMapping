@@ -115,7 +115,7 @@ namespace stair_mapping
         generateGroundTruth();
 
         th_ = std::thread([this](){
-            ros::Rate grtruth_publish_rate(5);
+            ros::Rate grtruth_publish_rate(1);
             while(ros::ok())
             {
                 ground_truth_pc2_.header.frame_id = "map";

@@ -21,6 +21,12 @@ namespace stair_mapping
         {
             hip_cs_[i] = Eigen::Matrix3d::Identity();
         }
+        node.param("imu_pose_calibrate_r", cali_r, 0.0);
+        node.param("imu_pose_calibrate_p", cali_p, 0.0);
+        node.param("imu_pose_calibrate_y", cali_y, 0.0);
+        imu_calibrate_ << cali_r, cali_p, cali_y;
+
+        ROS_INFO("IMU Pose calibration (RPY): %lf, %lf, %lf", cali_r, cali_p, cali_y);
 
         pcl_pub_ = node.advertise<sensor_msgs::PointCloud2>("transformed_points", 1);
         tip_points_pub_ = node.advertise<sensor_msgs::PointCloud2>("tip_points", 1);
@@ -49,7 +55,11 @@ namespace stair_mapping
 
         // rotate from imu's cs to the body's cs
         AngleAxisd rot_z(AngleAxisd(-M_PI / 2, Vector3d::UnitZ()));
-        q_body = q_imu * rot_z;
+        // add calibrations of imu pose 
+        AngleAxisd rot_cy(AngleAxisd(imu_calibrate_[2], Vector3d::UnitZ()));
+        AngleAxisd rot_cp(AngleAxisd(imu_calibrate_[1], Vector3d::UnitY()));
+        AngleAxisd rot_cr(AngleAxisd(imu_calibrate_[0], Vector3d::UnitX()));
+        q_body = q_imu * rot_z * rot_cy * rot_cp * rot_cr;
 
         //y = 0;
         if (is_first_msg_)
