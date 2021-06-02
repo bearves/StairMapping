@@ -21,17 +21,6 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
 )
 
-add_message_files(
-  FILES
-  GaitPhase.msg
-  RobotTipState.msg
-) 
-
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-)
-
 find_package(cmake_modules REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -40,8 +29,6 @@ find_package(Ceres REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
-
 
 ###################################
 ## catkin specific configuration ##
