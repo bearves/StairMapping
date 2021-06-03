@@ -227,8 +227,9 @@ namespace stair_mapping
             double x_frame = T_m2gm_opt_[i](0, 3);
             double y_frame = T_m2gm_opt_[i](1, 3);
             // compensate Z drift using the distance from the origin
-            T_m2gm_compensate_[i](0, 3) =  0.010 * (x_frame*x_frame + y_frame*y_frame);
-            T_m2gm_compensate_[i](2, 3) = -0.038 * (x_frame*x_frame + y_frame*y_frame);
+            T_m2gm_compensate_[i](2, 3) = -0.090 * sqrt(x_frame*x_frame + y_frame*y_frame);
+            // compensate X drift due to the foot shape by coe * distance_traversed
+            T_m2gm_compensate_[i](0, 3) =  0.015 * (x_frame);
         }
 
         last_submap_cnt_ = submap_cnt;
