@@ -30,6 +30,7 @@ namespace stair_mapping
             // first map
             T_m2gm_raw_.push_back(tf_m2m_laser);
             T_m2gm_opt_.push_back(tf_m2m_laser);
+            T_m2gm_compensate_.push_back(Eigen::Matrix4d::Identity());
         }
         else
         {
@@ -37,6 +38,7 @@ namespace stair_mapping
             T_m2gm_raw_.push_back(last_tf * tf_m2m_laser);
             auto last_opt_tf = T_m2gm_opt_[submap_cnt-1];
             T_m2gm_opt_.push_back(last_opt_tf * tf_m2m_laser);
+            T_m2gm_compensate_.push_back(T_m2gm_compensate_[submap_cnt-1]);
         }
         submaps_.push_back(sm);
         T_m2m_laser_.push_back(tf_m2m_laser);
@@ -76,7 +78,8 @@ namespace stair_mapping
         if (submaps_.size() == 0 )
             last_opt_tf = Eigen::Matrix4d::Identity();
         else
-            last_opt_tf = T_m2gm_opt_[T_m2gm_opt_.size() - 1];
+            last_opt_tf = T_m2gm_compensate_[T_m2gm_compensate_.size()-1] * 
+                          T_m2gm_opt_[T_m2gm_opt_.size() - 1];
         build_map_mutex_.unlock();
 
         return last_opt_tf;
@@ -95,7 +98,8 @@ namespace stair_mapping
         }
         else
         {
-            last_opt_tf = T_m2gm_opt_[T_m2gm_opt_.size() - 1];
+            last_opt_tf = T_m2gm_compensate_[T_m2gm_compensate_.size() - 1] * 
+                          T_m2gm_opt_[T_m2gm_opt_.size() - 1];
             last_robot_imu_tf = T_m2gm_imu_[T_m2gm_imu_.size() - 1];
         }
         build_map_mutex_.unlock();
@@ -133,10 +137,11 @@ namespace stair_mapping
         // the map building process is thread safe
         for(int i = 0; i < submap_cnt; i++)
         {
+            Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
             pcl::transformPointCloud(
                 *(submaps_[i]->getSubmapPoints()), 
                 transformed_opt_frame, 
-                T_m2gm_opt_[i]);
+                T_m2gm_refined);
             p_all_opt_points->operator+=( transformed_opt_frame );
 
             pcl::transformPointCloud(
@@ -191,14 +196,16 @@ namespace stair_mapping
             pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i+1, t_edge, ifm);
         }
         // edge of orientation imu constraints
-        if (submap_cnt > 0)
+        //if (submap_cnt > 0)
+        for(int i = 0; i < submap_cnt-1; i++)
         {
-            Pose3d t_edge(T_m2gm_imu_[submap_cnt - 1]);
+            //Pose3d t_edge(T_m2gm_imu_[submap_cnt - 1]);
+            Pose3d t_edge(T_m2gm_imu_[i+1]);
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
             ifm.diagonal() << 1e-16, 1e-16, 1e-16, 4, 4, 1e-16;
-            pg_.addEdge(EDGE_TYPE::ABS_ROTATION, 0, submap_cnt-1, t_edge, ifm);
+            pg_.addEdge(EDGE_TYPE::ABS_ROTATION, 0, i+1, t_edge, ifm);
         }
 
         // solve
@@ -217,6 +224,11 @@ namespace stair_mapping
         {
             const Vertex3d v = pg_.getVertices()->at(i);
             T_m2gm_opt_[i] = v.toMat4d();
+            double x_frame = T_m2gm_opt_[i](0, 3);
+            double y_frame = T_m2gm_opt_[i](1, 3);
+            // compensate Z drift using the distance from the origin
+            T_m2gm_compensate_[i](0, 3) =  0.010 * (x_frame*x_frame + y_frame*y_frame);
+            T_m2gm_compensate_[i](2, 3) = -0.038 * (x_frame*x_frame + y_frame*y_frame);
         }
 
         last_submap_cnt_ = submap_cnt;

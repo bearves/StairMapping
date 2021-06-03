@@ -16,6 +16,8 @@ namespace stair_mapping
             -0.340, -0.340, 0.000, 0.340, 0.340, 0.000,
             -0.050,  0.050, 0.175, 0.050,-0.050,-0.175,
              0.000,  0.000, 0.000, 0.000, 0.000, 0.000; 
+    
+        touch_prob_.setZero();
         
         for (int i = 0; i < 6; i++)
         {
@@ -33,6 +35,7 @@ namespace stair_mapping
         imu_sub_ = node.subscribe("/qz_state_publisher/robot_imu", 10, &RobotTfBroadcastNode::imuCallback, this);
         pcl_sub_ = node.subscribe("/camera/depth/color/points", 1, &RobotTfBroadcastNode::pclDataCallback, this);
         tip_state_sub_ = node.subscribe("/qz_state_publisher/robot_tip_state", 10, &RobotTfBroadcastNode::tipStateCallback, this);
+        gait_phase_sub_ = node.subscribe("/qz_state_publisher/robot_gait_phase", 10, &RobotTfBroadcastNode::gaitPhaseCallback, this);
     }
 
     void RobotTfBroadcastNode::imuCallback(const sensor_msgs::ImuConstPtr &msg)
@@ -81,6 +84,15 @@ namespace stair_mapping
         //ROS_INFO("Robot tf: %f %f %f", -p / M_PI * 180, r / M_PI * 180, y / M_PI * 180);
 
         br.sendTransform(transformStamped);
+    }
+
+    void RobotTfBroadcastNode::gaitPhaseCallback(const mini_bridge::GaitPhaseConstPtr &msg)
+    {
+        using namespace Eigen;
+        for(int i = 0; i < 6; i++)
+        {
+            touch_prob_[i] = msg->touch_possibility[i];
+        }
     }
 
     void RobotTfBroadcastNode::pclDataCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
@@ -136,13 +148,22 @@ namespace stair_mapping
             Eigen::Vector3d tip_pos_wrt_body = hip_cs_[i] * tip_pos_wrt_hip + hip_pos_.col(i);
             pcl::PointXYZRGB point;
             point.getVector3fMap() = tip_pos_wrt_body.cast<float>();
-            point.r = 0; point.g = 255; point.b = 0;
+
+            if (touch_prob_[i] > 0.9) // touch, green
+            {
+                point.r = 255; point.g = 0; point.b = 0;
+            }
+            else // not touch, red
+            {
+                point.r = 0; point.g = 255; point.b = 0;
+            }
+
             tip_points.push_back(point);
         }
         sensor_msgs::PointCloud2 pc2;
         pcl::toROSMsg(tip_points, pc2);
         pc2.header.frame_id = "base_link";
-        pc2.header.stamp = msg->header.stamp;
+        pc2.header.stamp = ros::Time::now();
         tip_points_pub_.publish(pc2);
     }
 } // namespace stair_mapping

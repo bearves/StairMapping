@@ -49,6 +49,8 @@ private:
     std::vector<Eigen::Matrix4d> T_m2gm_raw_;
     // The optimized transform of the submap in the global cs
     std::vector<Eigen::Matrix4d> T_m2gm_opt_;
+    // The transform compensate of the submap in the global cs
+    std::vector<Eigen::Matrix4d> T_m2gm_compensate_;
 
     PointCloudT::Ptr p_global_map_raw_points_;
     PointCloudT::Ptr p_global_map_opt_points_;
@@ -57,5 +59,6 @@ private:
     size_t last_submap_cnt_;
 
     std::mutex build_map_mutex_;
+
 };
 } // namespace stair_mapping
