@@ -1,5 +1,6 @@
 #include "GlobalMap.h"
-#include <pcl/octree/octree_pointcloud_density.h>
+#include <pcl/console/time.h>
+#include <pcl/octree/octree_pointcloud.h>
 
 namespace stair_mapping
 {
@@ -130,16 +131,30 @@ namespace stair_mapping
         PointCloudT::Ptr p_all_opt_points(new PointCloudT);
 
         build_map_mutex_.lock();
-        auto submap_cnt = submapCount();
+        int submap_cnt = submapCount();
         build_map_mutex_.unlock();
 
         // since only the old data are read and never changed
         // the map building process is thread safe
+        int lastn = submap_cnt - 100;
+        
+        pcl::console::TicToc time;
+        time.tic();
         for(int i = 0; i < submap_cnt; i++)
         {
+            if (i < lastn) continue;
+
+            // crop points to reduce step level plane error
+            PointCloudT::Ptr cropped_opt_frame(new PointCloudT);
+            PreProcessor::crop(
+                submaps_[i]->getSubmapPoints(), 
+                cropped_opt_frame, 
+                Vector3f(0, -0.5, -2),
+                Vector3f(1.5, 0.5, 0.4)); 
+
             Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
             pcl::transformPointCloud(
-                *(submaps_[i]->getSubmapPoints()), 
+                *cropped_opt_frame, 
                 transformed_opt_frame, 
                 T_m2gm_refined);
             p_all_opt_points->operator+=( transformed_opt_frame );
@@ -150,6 +165,12 @@ namespace stair_mapping
                 T_m2gm_raw_[i]);
             p_all_raw_points->operator+=( transformed_raw_frame );
         }
+        ROS_INFO("Global map generated time: %fms", time.toc());
+
+        // ready for calculating the distance between footholds and concated ground
+        // dist = getDistanceFoothold2Ground
+        // calculate compensate to reduce the dist
+        // it can be iterated for a few times to make the results satisfied
 
         *p_global_map_opt_points_ = *p_all_opt_points;
         *p_global_map_raw_points_ = *p_all_raw_points;
@@ -227,7 +248,7 @@ namespace stair_mapping
             double x_frame = T_m2gm_opt_[i](0, 3);
             double y_frame = T_m2gm_opt_[i](1, 3);
             // compensate Z drift using the distance from the origin
-            T_m2gm_compensate_[i](2, 3) = -0.090 * sqrt(x_frame*x_frame + y_frame*y_frame);
+            T_m2gm_compensate_[i](2, 3) = -0.100 * sqrt(x_frame*x_frame + y_frame*y_frame);
             // compensate X drift due to the foot shape by coe * distance_traversed
             T_m2gm_compensate_[i](0, 3) =  0.015 * (x_frame);
         }

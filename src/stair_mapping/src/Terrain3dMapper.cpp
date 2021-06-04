@@ -128,7 +128,7 @@ namespace stair_mapping
         PreProcessor::downSample(raw_pc, global_raw_points_, 0.02, 1);
 
         const PointCloudT::Ptr opt_pc = global_map_.getGlobalMapOptPoints();
-        PreProcessor::downSample(opt_pc, global_opt_points_, 0.02, 2);
+        PreProcessor::downSample(opt_pc, global_opt_points_, 0.02, 1);
     }
 
     Eigen::Matrix4d Terrain3dMapper::getLastSubMapRawTf()
