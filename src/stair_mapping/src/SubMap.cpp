@@ -38,10 +38,6 @@ namespace stair_mapping
         T_odom_.push_back(t_frame_odom);
         tip_states_.push_back(tip_states);
         
-        std::cout << "------ADD TIP STATES---------" << '\n';
-        std::cout << tip_states << '\n';
-        std::cout << "-----------------------------" << '\n';
-
         current_count_++;
         updateSubmapPoints();
     }
@@ -283,6 +279,23 @@ namespace stair_mapping
         Matrix4d T_o2o = current_odom * tm_last.inverse().matrix() ;
         // get the transform from submap's origin to this frame
         return T_o2o * T_f2sm_last;
+    }
+
+    Eigen::Matrix<double, 4, 6> SubMap::getLastTipPoints(const Eigen::Matrix4d& tf)
+    {
+        using namespace Eigen;
+        // no frames in this submap yet
+        if (current_count_ <= 0)
+        {
+            return Matrix<double, 4, 6>::Zero();
+        }
+        Matrix4d T_f2sm_last = T_f2sm_[current_count_ - 1];
+        Matrix<double, 4, 6> last_tip_pos = tip_states_[current_count_ - 1];
+        last_tip_pos.block<1, 6>(3, 0).setOnes();
+        
+        Matrix<double, 4, 6> transformed_tip_pos =  tf * T_f2sm_last * last_tip_pos;
+        transformed_tip_pos.block<1, 6>(3, 0) = tip_states_[current_count_ - 1].block<1, 6>(3, 0);
+        return transformed_tip_pos;
     }
 
     const PointCloudT::Ptr SubMap::getSubmapPoints()

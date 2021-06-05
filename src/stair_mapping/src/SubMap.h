@@ -36,6 +36,8 @@ public:
     const PointCloudT::Ptr getSubmapPoints();
     const PointCloudT::Ptr getCroppedSubmapPoints();
 
+    Eigen::Matrix<double, 4, 6> getLastTipPoints(const Eigen::Matrix4d& tf);
+
     Eigen::Matrix4d getRelativeTfGuess(
         const Eigen::Matrix4d& current_odom);
 

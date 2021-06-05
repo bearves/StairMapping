@@ -128,10 +128,15 @@ namespace stair_mapping
         PointCloudT transformed_raw_frame;
         PointCloudT::Ptr p_all_raw_points(new PointCloudT);
         PointCloudT::Ptr p_all_opt_points(new PointCloudT);
+        PointCloudT::Ptr p_all_opt_points_ds(new PointCloudT);
 
         build_map_mutex_.lock();
         int submap_cnt = submapCount();
         build_map_mutex_.unlock();
+
+        // if no submap, no need to generate global map points
+        if (submap_cnt <= 0)
+            return 0;
 
         // since only the old data are read and never changed
         // the map building process is thread safe
@@ -161,11 +166,34 @@ namespace stair_mapping
                 T_m2gm_refined);
             p_all_opt_points->operator+=( transformed_opt_frame );
         }
-        ROS_INFO("Global map generated time: %fms", time.toc());
+
+        // downsample
+        PreProcessor::downSample(p_all_opt_points, p_all_opt_points, 0.02);
 
         // ready for calculating the distance between footholds and concated ground
         // dist = getDistanceFoothold2Ground()
         pcl::octree::OctreePointCloudSearch<PointT> octree(0.02);
+
+        // get the tip points of last submap w.r.t. global cs
+        int last_id = submap_cnt - 1;
+        Matrix4d T_m2gm_last = T_m2gm_compensate_[last_id] * T_m2gm_opt_[last_id];
+        Matrix<double, 4, 6> last_tip_points = submaps_[last_id]->getLastTipPoints(T_m2gm_last);
+
+        // check if last tip points are valid
+        if (!last_tip_points.isZero()) 
+        {
+            octree.setInputCloud(p_all_opt_points_ds);
+            octree.addPointsFromInputCloud();
+            for (int i = 0; i < 6; i++)
+            {
+            }
+        }
+
+        ROS_INFO("Global map generated time: %fms", time.toc());
+
+        std::cout << "------GOT TIP STATES---------" << '\n';
+        std::cout << last_tip_points << '\n';
+        std::cout << "-----------------------------" << '\n';
         
         // calculate compensate to reduce the dist
         // it can be iterated for a few times to make the results satisfied
