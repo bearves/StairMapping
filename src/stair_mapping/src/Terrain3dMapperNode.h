@@ -6,6 +6,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_eigen/tf2_eigen.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/Imu.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -15,7 +16,7 @@
 #include "mini_bridge/GaitPhase.h"
 #include "mini_bridge/RobotTipState.h"
 #include "Terrain3dMapper.h"
-#include "RobotKinetics.h"
+#include "RobotTf.h"
 
 namespace stair_mapping 
 {
@@ -29,7 +30,9 @@ namespace stair_mapping
         ros::Subscriber odom_sub_;
         ros::Subscriber tip_state_sub_;
         ros::Subscriber gait_phase_sub_;
+        ros::Subscriber imu_sub_;
 
+        ros::Publisher imu_transformed_pub_;
         ros::Publisher preprocess_pub_;
         ros::Publisher submap_pub_;
         ros::Publisher global_map_opt_pub_;
@@ -41,13 +44,21 @@ namespace stair_mapping
 
         std::thread th_;        
         std::mutex odom_msg_mtx_;
+        std::mutex imu_msg_mtx_;
+        std::mutex tip_msg_mtx_;
 
         Eigen::Matrix4d current_odom_mat_;
+        Eigen::Matrix4d current_imu_from_camera_mat_;
+        Eigen::Matrix4d current_imu_from_base_mat_;
+        bool is_imu_transform_ok_;
+
         Terrain3dMapper terrain_mapper_;
         RobotKinetics robot_kin_;
+        ImuCalibrator imu_calibrator_;
 
         void pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
         void odomMsgCallback(const nav_msgs::OdometryConstPtr &msg);
+        void imuMsgCallback(const sensor_msgs::ImuConstPtr &msg);
         void tipStateCallback(const mini_bridge::RobotTipStateConstPtr &msg);
         void gaitPhaseCallback(const mini_bridge::GaitPhaseConstPtr &msg);
 

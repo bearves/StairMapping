@@ -30,11 +30,18 @@ namespace stair_mapping
 
     void SubMap::addFrame(PointCloudT frame, 
         Eigen::Matrix4d t_f2sm, 
-        Eigen::Matrix4d t_frame_odom)
+        Eigen::Matrix4d t_frame_odom,
+        const Eigen::Matrix<double, 4, 6>& tip_states)
     {
         frames_.push_back(frame);
         T_f2sm_.push_back(t_f2sm);
         T_odom_.push_back(t_frame_odom);
+        tip_states_.push_back(tip_states);
+        
+        std::cout << "------ADD TIP STATES---------" << '\n';
+        std::cout << tip_states << '\n';
+        std::cout << "-----------------------------" << '\n';
+
         current_count_++;
         updateSubmapPoints();
     }

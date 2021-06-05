@@ -24,17 +24,21 @@ namespace stair_mapping
         p_out_cloud = p_cloud_ds;
     }
 
+    // FrontEnd
+    // scan-to-submap matcher
     void Terrain3dMapper::matchSubmap(
         const PointCloudT::Ptr &p_in_cloud, 
         PointCloudT::Ptr &p_out_cloud, 
-        const Eigen::Matrix4d& t_frame_odom)
+        const Eigen::Matrix4d& t_frame_odom,
+        const Eigen::Matrix<double, 4, 6>& tip_states)
     {
         using namespace Eigen;
 
         int submap_store_cap = 2;
 
-        // FrontEnd
-        // scan-to-submap matcher
+        // reject empty cloud
+        if (p_in_cloud->empty()) return;
+
         // if no submap exists
         if (global_map_.submapCount() == 0)
         {
@@ -93,7 +97,7 @@ namespace stair_mapping
 
                 SubMap::Ptr p_sm(new SubMap(submap_store_cap));
                 p_sm->init();
-                p_sm->addFrame(*p_in_cloud, Matrix4d::Identity(), t_frame_odom);
+                p_sm->addFrame(*p_in_cloud, Matrix4d::Identity(), t_frame_odom, tip_states);
                 // match to last submap if exists, record transform Ti
                 global_map_.addNewSubmap(
                     p_sm, 
@@ -107,7 +111,7 @@ namespace stair_mapping
             else
             {
                 // add current pcl to current submap
-                last_sm->addFrame(*p_in_cloud, t_frame_to_last_map, t_frame_odom);
+                last_sm->addFrame(*p_in_cloud, t_frame_to_last_map, t_frame_odom, tip_states);
                 current_sm = last_sm;
             }
         }

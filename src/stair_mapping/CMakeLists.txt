@@ -86,7 +86,7 @@ add_executable(robot_tf_broadcast_node src/robot_tf_broadcast_node.cpp src/Robot
 add_executable(test_pose_graph src/test_pose_graph.cpp src/PoseGraph.cpp)
 
 set(TERRAIN_3D_MAP_SOURCE src/terrain_3d_map_node.cpp src/Terrain3dMapperNode.cpp src/Terrain3dMapper.cpp src/SubMap.cpp)
-set(TERRAIN_3D_MAP_SOURCE ${TERRAIN_3D_MAP_SOURCE} src/GlobalMap.cpp src/PreProcessor.cpp src/PoseGraph.cpp src/RobotKinetics.cpp)
+set(TERRAIN_3D_MAP_SOURCE ${TERRAIN_3D_MAP_SOURCE} src/GlobalMap.cpp src/PreProcessor.cpp src/PoseGraph.cpp src/RobotTf.cpp)
 add_executable(terrain_3d_map_node ${TERRAIN_3D_MAP_SOURCE})
 
 set(HEIGHT_MAP_SOURCE src/height_map_node.cpp src/ElevationGrid.cpp src/HeightMapNode.cpp)

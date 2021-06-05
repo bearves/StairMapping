@@ -21,7 +21,8 @@ public:
     void addFrame(
         PointCloudT frame,
         Eigen::Matrix4d t_f2sm, 
-        Eigen::Matrix4d t_frame_odom);
+        Eigen::Matrix4d t_frame_odom,
+        const Eigen::Matrix<double, 4, 6>& tip_states);
 
     bool hasEnoughFrame();
     bool isEmpty();
@@ -45,6 +46,7 @@ private:
     int current_count_;
     std::vector<Eigen::Matrix4d> T_f2sm_;
     std::vector<Eigen::Matrix4d> T_odom_;
+    std::vector<Eigen::Matrix<double, 4, 6> > tip_states_;
     std::vector<PointCloudT> frames_;
     PointCloudT::Ptr p_submap_points_;
     PointCloudT::Ptr p_cropped_submap_points_;

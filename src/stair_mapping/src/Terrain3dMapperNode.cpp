@@ -10,6 +10,14 @@ namespace stair_mapping
 {
     Terrain3dMapperNode::Terrain3dMapperNode(ros::NodeHandle& node)
     {
+        using namespace Eigen;
+
+        imu_calibrator_.setParam(node);
+        current_imu_from_camera_mat_ = Matrix4d::Identity();
+        current_imu_from_base_mat_ = Matrix4d::Identity();
+        current_odom_mat_ = Matrix4d::Identity();
+
+        imu_transformed_pub_ = node.advertise<sensor_msgs::PointCloud2>("transformed_points", 1);
         preprocess_pub_ = node.advertise<sensor_msgs::PointCloud2>("preprocessed_points", 1);
         submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
         global_map_opt_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_opt_points", 1);
@@ -20,41 +28,84 @@ namespace stair_mapping
         odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &Terrain3dMapperNode::odomMsgCallback, this);
         tip_state_sub_ = node.subscribe("/qz_state_publisher/robot_tip_state", 1, &Terrain3dMapperNode::tipStateCallback, this);
         gait_phase_sub_ = node.subscribe("/qz_state_publisher/robot_gait_phase", 1, &Terrain3dMapperNode::gaitPhaseCallback, this);
-        pcl_sub_ = node.subscribe("transformed_points", 1, &Terrain3dMapperNode::pclMsgCallback, this);
+        imu_sub_ = node.subscribe("/qz_state_publisher/robot_imu", 1, &Terrain3dMapperNode::imuMsgCallback, this);
+        pcl_sub_ = node.subscribe("/camera/depth/color/points", 1, &Terrain3dMapperNode::pclMsgCallback, this);
     }
 
     void Terrain3dMapperNode::pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
     {
         using namespace Eigen;
         PointCloudT::Ptr p_in_cloud(new PointCloudT);
+        PointCloudT::Ptr p_tr_cloud(new PointCloudT);
         PointCloudT::Ptr p_pre_cloud(new PointCloudT);
 
         ROS_INFO("Realsense msg received");
 
+        sensor_msgs::PointCloud2 tsfm_out_cloud2;
         sensor_msgs::PointCloud2 pre_out_cloud2;
         sensor_msgs::PointCloud2 submap_out_cloud2;
 
         pcl::fromROSMsg(*msg, *p_in_cloud);
 
-        terrain_mapper_.preprocess(p_in_cloud, p_pre_cloud);
+        // transform using imu
+        imu_msg_mtx_.lock();
+        Matrix4d t_imu_camera = current_imu_from_camera_mat_;
+        Matrix4d t_imu_baselink = current_imu_from_base_mat_;
+        bool is_transform_ok = is_imu_transform_ok_;
+        imu_msg_mtx_.unlock();
+
+        // when imu transform is not ready, do nothing to point cloud data
+        if (!is_transform_ok) return;
+
+        tip_msg_mtx_.lock();
+        auto tip_states = robot_kin_.getTipPosWithTouchState(t_imu_baselink);
+        tip_msg_mtx_.unlock();
+
+        pcl::transformPointCloud(*p_in_cloud, *p_tr_cloud, t_imu_camera);
+
+        pcl::toROSMsg(*p_tr_cloud, tsfm_out_cloud2);
+        tsfm_out_cloud2.header.frame_id = "base_world";
+        tsfm_out_cloud2.header.stamp = msg->header.stamp;
+        imu_transformed_pub_.publish(tsfm_out_cloud2);
+
+        // preprocess
+        terrain_mapper_.preprocess(p_tr_cloud, p_pre_cloud);
 
         pcl::toROSMsg(*p_pre_cloud, pre_out_cloud2);
         pre_out_cloud2.header.frame_id = "base_world";
         pre_out_cloud2.header.stamp = msg->header.stamp;
         preprocess_pub_.publish(pre_out_cloud2);
 
+        // match submaps
         PointCloudT::Ptr p_submap_cloud(new PointCloudT);
-
         odom_msg_mtx_.lock();
         Matrix4d t_frame_odom = current_odom_mat_;
         odom_msg_mtx_.unlock();
-        terrain_mapper_.matchSubmap(p_pre_cloud, p_submap_cloud, t_frame_odom);
+        terrain_mapper_.matchSubmap(p_pre_cloud, p_submap_cloud, t_frame_odom, tip_states);
 
         pcl::toROSMsg(*p_submap_cloud, submap_out_cloud2);
         submap_out_cloud2.header.frame_id = "base_world";
         submap_out_cloud2.header.stamp = msg->header.stamp;
         submap_pub_.publish(submap_out_cloud2);
+    }
 
+    void Terrain3dMapperNode::imuMsgCallback(const sensor_msgs::ImuConstPtr &msg)
+    {
+        using namespace Eigen;
+
+        auto imu_tsfm = imu_calibrator_.updateCalibratedImuTf(msg->orientation);
+        imu_tsfm.header.stamp = msg->header.stamp;
+        imu_tsfm.header.frame_id = "base_world";
+        imu_tsfm.child_frame_id = "base_link";
+        br_.sendTransform(imu_tsfm);
+
+        auto imu_tf_from_camera = imu_calibrator_.getCalibratedImuTfFromCamera();
+        auto imu_tf_from_baselink = imu_calibrator_.getCalibratedImuTfFromBaseLink();
+        imu_msg_mtx_.lock();
+        current_imu_from_camera_mat_ = imu_tf_from_camera;
+        current_imu_from_base_mat_ = imu_tf_from_baselink;
+        is_imu_transform_ok_ = imu_calibrator_.isImuTransformReady();
+        imu_msg_mtx_.unlock();
     }
 
     void Terrain3dMapperNode::odomMsgCallback(const nav_msgs::OdometryConstPtr &msg)
@@ -88,12 +139,16 @@ namespace stair_mapping
     void Terrain3dMapperNode::gaitPhaseCallback(const mini_bridge::GaitPhaseConstPtr &msg)
     {
         using namespace Eigen;
+        tip_msg_mtx_.lock();
         robot_kin_.updateTouchState(msg->header.stamp, msg->touch_possibility);
+        tip_msg_mtx_.unlock();
     }
 
     void Terrain3dMapperNode::tipStateCallback(const mini_bridge::RobotTipStateConstPtr &msg)
     {
+        tip_msg_mtx_.lock();
         robot_kin_.updateTipPosition(msg->header.stamp, msg->tip_pos);
+        tip_msg_mtx_.unlock();
 
         sensor_msgs::PointCloud2 pc2;
         pcl::toROSMsg(*robot_kin_.getTipPoints(), pc2);
