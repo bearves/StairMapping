@@ -118,11 +118,13 @@ namespace stair_mapping
     }
     void Terrain3dMapper::buildGlobalMap()
     {
+        // optimize global map, update submap tf matrices
         global_map_.runGlobalPoseOptimizer();
-        correct_tf_ = global_map_.getCorrectTf();
-        // concat all submaps together 
+        // update global points, update compensation matrices
         auto submap_cnt = global_map_.updateGlobalMapPoints();
         ROS_INFO("Submap count: %ld", submap_cnt);
+
+        correct_tf_ = global_map_.getCorrectTf();
 
         const PointCloudT::Ptr raw_pc = global_map_.getGlobalMapRawPoints();
         PreProcessor::downSample(raw_pc, global_raw_points_, 0.02, 1);

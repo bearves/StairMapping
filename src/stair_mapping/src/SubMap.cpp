@@ -15,7 +15,8 @@ namespace stair_mapping
     SubMap::SubMap(int max_stored_pcl_count):
         max_stored_frame_count_(max_stored_pcl_count),
         current_count_(0),
-        p_submap_points_(new PointCloudT)
+        p_submap_points_(new PointCloudT),
+        p_cropped_submap_points_(new PointCloudT)
     {
     }
 
@@ -62,6 +63,13 @@ namespace stair_mapping
             p_all_points->operator+=( transformed_frame );
         }
         *p_submap_points_ = *p_all_points;
+
+        // crop for global map building
+        PreProcessor::crop(
+            p_submap_points_,
+            p_cropped_submap_points_,
+            Vector3f(0, -0.5, -2),
+            Vector3f(1.5, 0.5, 0.4));
     }
 
     double SubMap::match(
@@ -273,5 +281,10 @@ namespace stair_mapping
     const PointCloudT::Ptr SubMap::getSubmapPoints()
     {
         return this->p_submap_points_;
+    }
+
+    const PointCloudT::Ptr SubMap::getCroppedSubmapPoints()
+    {
+        return this->p_cropped_submap_points_;
     }
 }

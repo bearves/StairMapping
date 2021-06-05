@@ -33,6 +33,7 @@ public:
         InfoMatrix& info_match_result);
 
     const PointCloudT::Ptr getSubmapPoints();
+    const PointCloudT::Ptr getCroppedSubmapPoints();
 
     Eigen::Matrix4d getRelativeTfGuess(
         const Eigen::Matrix4d& current_odom);
@@ -46,6 +47,7 @@ private:
     std::vector<Eigen::Matrix4d> T_odom_;
     std::vector<PointCloudT> frames_;
     PointCloudT::Ptr p_submap_points_;
+    PointCloudT::Ptr p_cropped_submap_points_;
 
     void updateSubmapPoints();
 

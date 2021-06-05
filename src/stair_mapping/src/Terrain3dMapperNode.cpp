@@ -15,7 +15,11 @@ namespace stair_mapping
         global_map_opt_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_opt_points", 1);
         global_map_raw_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_raw_points", 1);
         corrected_odom_pub_ = node.advertise<geometry_msgs::PoseStamped>("corrected_robot_pose", 1);
+        tip_points_pub_ = node.advertise<sensor_msgs::PointCloud2>("tip_points", 1);
+
         odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &Terrain3dMapperNode::odomMsgCallback, this);
+        tip_state_sub_ = node.subscribe("/qz_state_publisher/robot_tip_state", 1, &Terrain3dMapperNode::tipStateCallback, this);
+        gait_phase_sub_ = node.subscribe("/qz_state_publisher/robot_gait_phase", 1, &Terrain3dMapperNode::gaitPhaseCallback, this);
         pcl_sub_ = node.subscribe("transformed_points", 1, &Terrain3dMapperNode::pclMsgCallback, this);
     }
 
@@ -81,6 +85,22 @@ namespace stair_mapping
         return pose.matrix();
     }
 
+    void Terrain3dMapperNode::gaitPhaseCallback(const mini_bridge::GaitPhaseConstPtr &msg)
+    {
+        using namespace Eigen;
+        robot_kin_.updateTouchState(msg->header.stamp, msg->touch_possibility);
+    }
+
+    void Terrain3dMapperNode::tipStateCallback(const mini_bridge::RobotTipStateConstPtr &msg)
+    {
+        robot_kin_.updateTipPosition(msg->header.stamp, msg->tip_pos);
+
+        sensor_msgs::PointCloud2 pc2;
+        pcl::toROSMsg(*robot_kin_.getTipPoints(), pc2);
+        pc2.header.frame_id = "base_link";
+        pc2.header.stamp = ros::Time::now();
+        tip_points_pub_.publish(pc2);
+    }
 
     void Terrain3dMapperNode::startMapServer()
     {

@@ -1,6 +1,6 @@
 #include "GlobalMap.h"
 #include <pcl/console/time.h>
-#include <pcl/octree/octree_pointcloud.h>
+#include <pcl/search/octree.h>
 
 namespace stair_mapping
 {
@@ -120,7 +120,6 @@ namespace stair_mapping
         return p_global_map_opt_points_;
     }
 
-
     std::size_t GlobalMap::updateGlobalMapPoints()
     {
         using namespace Eigen;
@@ -138,26 +137,9 @@ namespace stair_mapping
         // the map building process is thread safe
         int lastn = submap_cnt - 100;
         
-        pcl::console::TicToc time;
-        time.tic();
         for(int i = 0; i < submap_cnt; i++)
         {
             if (i < lastn) continue;
-
-            // crop points to reduce step level plane error
-            PointCloudT::Ptr cropped_opt_frame(new PointCloudT);
-            PreProcessor::crop(
-                submaps_[i]->getSubmapPoints(), 
-                cropped_opt_frame, 
-                Vector3f(0, -0.5, -2),
-                Vector3f(1.5, 0.5, 0.4)); 
-
-            Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
-            pcl::transformPointCloud(
-                *cropped_opt_frame, 
-                transformed_opt_frame, 
-                T_m2gm_refined);
-            p_all_opt_points->operator+=( transformed_opt_frame );
 
             pcl::transformPointCloud(
                 *(submaps_[i]->getSubmapPoints()), 
@@ -165,10 +147,26 @@ namespace stair_mapping
                 T_m2gm_raw_[i]);
             p_all_raw_points->operator+=( transformed_raw_frame );
         }
+
+        pcl::console::TicToc time;
+        time.tic();
+
+        for(int i = 0; i < submap_cnt; i++)
+        {
+            if (i < lastn) continue;
+            Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
+            pcl::transformPointCloud(
+                *submaps_[i]->getCroppedSubmapPoints(), 
+                transformed_opt_frame, 
+                T_m2gm_refined);
+            p_all_opt_points->operator+=( transformed_opt_frame );
+        }
         ROS_INFO("Global map generated time: %fms", time.toc());
 
         // ready for calculating the distance between footholds and concated ground
-        // dist = getDistanceFoothold2Ground
+        // dist = getDistanceFoothold2Ground()
+        pcl::octree::OctreePointCloudSearch<PointT> octree(0.02);
+        
         // calculate compensate to reduce the dist
         // it can be iterated for a few times to make the results satisfied
 
