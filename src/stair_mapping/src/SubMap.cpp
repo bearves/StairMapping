@@ -281,7 +281,7 @@ namespace stair_mapping
         return T_o2o * T_f2sm_last;
     }
 
-    Eigen::Matrix<double, 4, 6> SubMap::getLastTipPoints(const Eigen::Matrix4d& tf)
+    Eigen::Matrix<double, 4, 6> SubMap::getLastTipPointsWithTransform(const Eigen::Matrix4d& tf)
     {
         using namespace Eigen;
         // no frames in this submap yet

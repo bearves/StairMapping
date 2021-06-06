@@ -1,6 +1,7 @@
 #include "GlobalMap.h"
 #include <pcl/console/time.h>
 #include <pcl/search/octree.h>
+#include <pcl/common/common.h>
 
 namespace stair_mapping
 {
@@ -128,7 +129,7 @@ namespace stair_mapping
         PointCloudT transformed_raw_frame;
         PointCloudT::Ptr p_all_raw_points(new PointCloudT);
         PointCloudT::Ptr p_all_opt_points(new PointCloudT);
-        PointCloudT::Ptr p_all_opt_points_ds(new PointCloudT);
+        PointCloudT::Ptr p_patch(new PointCloudT);
 
         build_map_mutex_.lock();
         int submap_cnt = submapCount();
@@ -167,41 +168,101 @@ namespace stair_mapping
             p_all_opt_points->operator+=( transformed_opt_frame );
         }
 
-        // downsample
-        PreProcessor::downSample(p_all_opt_points, p_all_opt_points, 0.02);
-
-        // ready for calculating the distance between footholds and concated ground
-        // dist = getDistanceFoothold2Ground()
-        pcl::octree::OctreePointCloudSearch<PointT> octree(0.02);
-
-        // get the tip points of last submap w.r.t. global cs
-        int last_id = submap_cnt - 1;
-        Matrix4d T_m2gm_last = T_m2gm_compensate_[last_id] * T_m2gm_opt_[last_id];
-        Matrix<double, 4, 6> last_tip_points = submaps_[last_id]->getLastTipPoints(T_m2gm_last);
-
-        // check if last tip points are valid
-        if (!last_tip_points.isZero()) 
-        {
-            octree.setInputCloud(p_all_opt_points_ds);
-            octree.addPointsFromInputCloud();
-            for (int i = 0; i < 6; i++)
-            {
-            }
-        }
+        Matrix<double, 4, 6> last_tip_points;
+        calculateFootholdGroundDistance(submap_cnt, p_all_opt_points, last_tip_points, p_patch);
 
         ROS_INFO("Global map generated time: %fms", time.toc());
-
-        std::cout << "------GOT TIP STATES---------" << '\n';
-        std::cout << last_tip_points << '\n';
-        std::cout << "-----------------------------" << '\n';
-        
-        // calculate compensate to reduce the dist
-        // it can be iterated for a few times to make the results satisfied
 
         *p_global_map_opt_points_ = *p_all_opt_points;
         *p_global_map_raw_points_ = *p_all_raw_points;
 
         return submap_cnt;
+    }
+
+    void GlobalMap::calculateFootholdGroundDistance(
+        int submap_count,
+        const PointCloudT::Ptr& ground,
+        Eigen::Matrix<double, 4, 6>& last_tip_points,
+        PointCloudT::Ptr& ground_patch)
+    {
+        using namespace Eigen;
+
+        PointCloudT::Ptr ground_under_robot(new PointCloudT);
+
+        // get the tip points of last submap w.r.t. global cs
+        int last_id = submap_count - 1;
+        Matrix4d T_m2gm_last = T_m2gm_compensate_[last_id] * T_m2gm_opt_[last_id];
+        last_tip_points = submaps_[last_id]->getLastTipPointsWithTransform(T_m2gm_last);
+
+        // crop the X and Y range of the ground since only the part under the robot is used
+        double loose = 0.06;
+        double y_crop_max = last_tip_points.row(1).maxCoeff() + loose;
+        double y_crop_min = last_tip_points.row(1).minCoeff() - loose;
+        double x_crop_max = last_tip_points.row(0).maxCoeff() + loose;
+        double x_crop_min = last_tip_points.row(0).minCoeff() - loose;
+
+        PreProcessor::crop(ground, ground_under_robot, 
+            Eigen::Vector3f(x_crop_min, y_crop_min, -10), 
+            Eigen::Vector3f(x_crop_max, y_crop_max,  10));
+
+        // ready for calculating the distance between footholds and concated ground
+
+        // check if last tip points are valid
+        if (!last_tip_points.isZero() && !ground_under_robot->empty()) 
+        {
+
+            std::vector<PointT, Eigen::aligned_allocator<PointT>> center_list[6];
+            for (int i = 0; i < 6; i++)
+            {
+                std::cout << "-----------------------------" << '\n';
+                std::cout << "Tip points: " << last_tip_points.col(i).transpose() << "\n";
+
+                // skip flying points
+                if (last_tip_points.col(i)(3) < 0.9) 
+                    continue;
+
+                Vector3f foothold = last_tip_points.col(i).topRows(3).cast<float>();
+                Vector3f direction = -Vector3f::UnitZ();
+
+                // crop the area under foottip
+                PointCloudT::Ptr ground_under_foot(new PointCloudT);
+                double loose = 0.02;
+                double x_crop_max = foothold(0) + loose;
+                double x_crop_min = foothold(0) - loose;
+                double y_crop_max = foothold(1) + loose;
+                double y_crop_min = foothold(1) - loose;
+
+                PreProcessor::crop(ground_under_robot, ground_under_foot,
+                                   Eigen::Vector3f(x_crop_min, y_crop_min, -10),
+                                   Eigen::Vector3f(x_crop_max, y_crop_max, 10));
+
+                // build octree for search
+                pcl::octree::OctreePointCloudSearch<PointT> octree(0.02);
+                octree.setInputCloud(ground_under_foot);
+                octree.addPointsFromInputCloud();
+
+                // search from up to down, to find the upmost ground voxel 
+                octree.getIntersectedVoxelCenters(
+                    foothold + Vector3f(0, 0, 0.5),
+                    direction,
+                    center_list[i]);
+
+                for(int j = 0; j < center_list[i].size(); j++)
+                {
+                    std::cout << "Hit boxes: (" << 
+                        center_list[i][j].x << "," << 
+                        center_list[i][j].y << "," << 
+                        center_list[i][j].z << ")" << "\n";
+                }
+
+                std::cout << "Search area points: " << ground_under_foot->width * ground_under_foot->height << "\n";
+                std::cout << "-----------------------------" << '\n';
+            }
+        }
+        // calculate compensation to reduce the dist
+        // it can be iterated for a few times to make the results satisfied
+
+        *ground_patch = *ground_under_robot;
     }
 
     bool GlobalMap::runGlobalPoseOptimizer()
@@ -274,9 +335,10 @@ namespace stair_mapping
             double x_frame = T_m2gm_opt_[i](0, 3);
             double y_frame = T_m2gm_opt_[i](1, 3);
             // compensate Z drift using the distance from the origin
-            T_m2gm_compensate_[i](2, 3) = -0.100 * sqrt(x_frame*x_frame + y_frame*y_frame);
+            //T_m2gm_compensate_[i](2, 3) = -0.100 * sqrt(x_frame*x_frame + y_frame*y_frame);
+            T_m2gm_compensate_[i](2, 3) = 0.00 * sqrt(x_frame*x_frame + y_frame*y_frame);
             // compensate X drift due to the foot shape by coe * distance_traversed
-            T_m2gm_compensate_[i](0, 3) =  0.015 * (x_frame);
+            T_m2gm_compensate_[i](0, 3) = 0.02 * (x_frame);
         }
 
         last_submap_cnt_ = submap_cnt;

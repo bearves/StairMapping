@@ -60,5 +60,12 @@ private:
 
     std::mutex build_map_mutex_;
 
+    void calculateFootholdGroundDistance(
+        int submap_count,
+        const PointCloudT::Ptr& ground,
+        Eigen::Matrix<double, 4, 6>& last_tip_points,
+        PointCloudT::Ptr& ground_patch
+    );
+
 };
 } // namespace stair_mapping
