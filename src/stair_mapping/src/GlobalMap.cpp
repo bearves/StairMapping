@@ -8,6 +8,7 @@ namespace stair_mapping
     GlobalMap::GlobalMap()
         : p_global_map_raw_points_(new PointCloudT),
           p_global_map_opt_points_(new PointCloudT),
+          p_foothold_ground_patch_(new PointCloudT),
           last_submap_cnt_(0)
     {
     }
@@ -120,6 +121,10 @@ namespace stair_mapping
     {
         return p_global_map_opt_points_;
     }
+    const PointCloudT::Ptr GlobalMap::getGroundPatchPoints()
+    {
+        return p_foothold_ground_patch_;
+    }
 
     std::size_t GlobalMap::updateGlobalMapPoints()
     {
@@ -129,7 +134,6 @@ namespace stair_mapping
         PointCloudT transformed_raw_frame;
         PointCloudT::Ptr p_all_raw_points(new PointCloudT);
         PointCloudT::Ptr p_all_opt_points(new PointCloudT);
-        PointCloudT::Ptr p_patch(new PointCloudT);
 
         build_map_mutex_.lock();
         int submap_cnt = submapCount();
@@ -169,7 +173,8 @@ namespace stair_mapping
         }
 
         Matrix<double, 4, 6> last_tip_points;
-        calculateFootholdGroundDistance(submap_cnt, p_all_opt_points, last_tip_points, p_patch);
+        calculateFootholdGroundDistance(
+            submap_cnt, p_all_opt_points, last_tip_points, p_foothold_ground_patch_);
 
         ROS_INFO("Global map generated time: %fms", time.toc());
 
@@ -188,6 +193,7 @@ namespace stair_mapping
         using namespace Eigen;
 
         PointCloudT::Ptr ground_under_robot(new PointCloudT);
+        ground_patch->clear();
 
         // get the tip points of last submap w.r.t. global cs
         int last_id = submap_count - 1;
@@ -246,6 +252,8 @@ namespace stair_mapping
                     foothold + Vector3f(0, 0, 0.5),
                     direction,
                     center_list[i]);
+                
+                *ground_patch += *ground_under_foot;
 
                 for(int j = 0; j < center_list[i].size(); j++)
                 {
@@ -260,9 +268,7 @@ namespace stair_mapping
             }
         }
         // calculate compensation to reduce the dist
-        // it can be iterated for a few times to make the results satisfied
 
-        *ground_patch = *ground_under_robot;
     }
 
     bool GlobalMap::runGlobalPoseOptimizer()

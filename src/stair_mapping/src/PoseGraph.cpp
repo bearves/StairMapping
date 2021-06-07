@@ -117,6 +117,7 @@ namespace stair_mapping
         // constrain the gauge freedom. This can be done by setting one of the poses
         // as constant so the optimizer cannot change it.
         auto &pose_start = vertex_list_[0];
+        auto &pose_end = vertex_list_[vertex_list_.size()-1];
         problem.SetParameterBlockConstant(pose_start.t_vertex.p.data());
         problem.SetParameterBlockConstant(pose_start.t_vertex.q.coeffs().data());
 

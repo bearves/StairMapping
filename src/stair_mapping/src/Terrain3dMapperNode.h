@@ -37,6 +37,7 @@ namespace stair_mapping
         ros::Publisher submap_pub_;
         ros::Publisher global_map_opt_pub_;
         ros::Publisher global_map_raw_pub_;
+        ros::Publisher gnd_patch_pub_;
         ros::Publisher corrected_odom_pub_;
         ros::Publisher tip_points_pub_;
 

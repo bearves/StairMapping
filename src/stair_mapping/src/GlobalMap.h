@@ -33,6 +33,7 @@ public:
 
     const PointCloudT::Ptr getGlobalMapRawPoints();
     const PointCloudT::Ptr getGlobalMapOptPoints();
+    const PointCloudT::Ptr getGroundPatchPoints();
 
 private:
     std::vector<SubMap::Ptr> submaps_;
@@ -54,6 +55,7 @@ private:
 
     PointCloudT::Ptr p_global_map_raw_points_;
     PointCloudT::Ptr p_global_map_opt_points_;
+    PointCloudT::Ptr p_foothold_ground_patch_;
 
     PoseGraph pg_; 
     size_t last_submap_cnt_;

@@ -5,7 +5,7 @@ namespace stair_mapping
     Terrain3dMapper::Terrain3dMapper()
         : global_opt_points_(new PointCloudT),
           global_raw_points_(new PointCloudT),
-          global_height_map_(new PointCloudT),
+          ground_patch_points_(new PointCloudT),
           correct_tf_(Eigen::Matrix4d::Identity())
     {
     }
@@ -135,6 +135,8 @@ namespace stair_mapping
 
         const PointCloudT::Ptr opt_pc = global_map_.getGlobalMapOptPoints();
         PreProcessor::downSample(opt_pc, global_opt_points_, 0.02, 1);
+
+        ground_patch_points_ = global_map_.getGroundPatchPoints();
     }
 
     Eigen::Matrix4d Terrain3dMapper::getLastSubMapRawTf()
@@ -155,6 +157,11 @@ namespace stair_mapping
     const PointCloudT::Ptr Terrain3dMapper::getGlobalMapRawPoints()
     {
         return global_raw_points_;
+    }
+
+    const PointCloudT::Ptr Terrain3dMapper::getGroundPatchPoints()
+    {
+        return ground_patch_points_;
     }
 
     const PointCloudT::Ptr Terrain3dMapper::getGlobalMapOptPoints()

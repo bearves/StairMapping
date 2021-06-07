@@ -22,6 +22,7 @@ namespace stair_mapping
         submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
         global_map_opt_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_opt_points", 1);
         global_map_raw_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_raw_points", 1);
+        gnd_patch_pub_ = node.advertise<sensor_msgs::PointCloud2>("gnd_patch_points", 1);
         corrected_odom_pub_ = node.advertise<geometry_msgs::PoseStamped>("corrected_robot_pose", 1);
         tip_points_pub_ = node.advertise<sensor_msgs::PointCloud2>("tip_points", 1);
 
@@ -186,6 +187,13 @@ namespace stair_mapping
         raw_pc2.header.frame_id = "map";
         raw_pc2.header.stamp = ros::Time::now();
         global_map_raw_pub_.publish(raw_pc2);
+
+        sensor_msgs::PointCloud2 gnd_patch_pc2;
+        auto p_gnd_patch_pc = terrain_mapper_.getGroundPatchPoints();
+        pcl::toROSMsg(*p_gnd_patch_pc, gnd_patch_pc2);
+        gnd_patch_pc2.header.frame_id = "map";
+        gnd_patch_pc2.header.stamp = ros::Time::now();
+        gnd_patch_pub_.publish(gnd_patch_pc2);
     }
 
     void Terrain3dMapperNode::publishCorrectedTf(const ros::Time &stamp, const Eigen::Matrix4d &original_robot_tf)

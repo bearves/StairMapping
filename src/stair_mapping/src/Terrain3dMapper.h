@@ -26,14 +26,15 @@ namespace stair_mapping
 
         const PointCloudT::Ptr getGlobalMapRawPoints();
         const PointCloudT::Ptr getGlobalMapOptPoints();
+        const PointCloudT::Ptr getGroundPatchPoints();
 
     private:
         GlobalMap global_map_;
         PointCloudT::Ptr global_raw_points_;
         PointCloudT::Ptr global_opt_points_;
+        PointCloudT::Ptr ground_patch_points_;
         Eigen::Matrix4d correct_tf_;
 
-        PointCloudT::Ptr global_height_map_;
     };
 
 } // namespace stair_mapping
