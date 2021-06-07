@@ -62,11 +62,20 @@ private:
 
     std::mutex build_map_mutex_;
 
-    void calculateFootholdGroundDistance(
+    double compensation_coe_;
+
+    double calculateFootGroundCompensation(
+        int submap_count,
+        const Eigen::Matrix<double, 4, 6>& last_tip_points,
+        const Eigen::Matrix<double, 1, 6>& distance
+    );
+
+    void estimateFootGroundDistance(
         int submap_count,
         const PointCloudT::Ptr& ground,
         Eigen::Matrix<double, 4, 6>& last_tip_points,
-        PointCloudT::Ptr& ground_patch
+        PointCloudT::Ptr& ground_patch,
+        Eigen::Matrix<double, 1, 6>& distance
     );
 
 };
