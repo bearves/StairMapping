@@ -257,7 +257,7 @@ namespace stair_mapping
                     foothold + Vector3f(0, 0, 0.5),
                     direction, center_list[i]);
 
-                // find the closest vexel to the foothold
+                // find the upmost vexel to the foothold
                 double max_distance = 0.1;
                 if (center_list[i].size() > 0)
                 {

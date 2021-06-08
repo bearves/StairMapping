@@ -98,7 +98,6 @@ namespace stair_mapping
         else
         {
             t_match_result = init_guess;
-            // TODO: ICP/NDT match here
             double score = matchIcp(
                 frame, 
                 p_submap_points_, 
@@ -106,14 +105,12 @@ namespace stair_mapping
                 t_match_result,
                 info_match_result);
 
-            std::string match_msg;
-            std::stringstream ss(match_msg);
-            ss << "Score:" << score << std::endl;
-            ss << "Init guess:\n" << init_guess << std::endl;
-            ss << "Registration result:\n" << t_match_result << std::endl;
-            ss << "Info matrix eig:\n" << info_match_result.eigenvalues().real() << std::endl;
-            ROS_INFO("%s", match_msg.c_str());
-            //t_match_result.block<3,3>(0, 0) = Eigen::Matrix3d::Identity();
+#if VERBOSE_INFO
+            std::cout << "Score:" << score << std::endl;
+            std::cout << "Init guess:\n" << init_guess << std::endl;
+            std::cout << "Registration result:\n" << t_match_result << std::endl;
+            std::cout << "Info matrix eig:\n" << info_match_result.eigenvalues().real() << std::endl;
+#endif
 
             //t_match_result = init_guess;
             return score; // best score

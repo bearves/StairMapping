@@ -40,8 +40,6 @@ namespace stair_mapping
         PointCloudT::Ptr p_tr_cloud(new PointCloudT);
         PointCloudT::Ptr p_pre_cloud(new PointCloudT);
 
-        ROS_INFO("Realsense msg received");
-
         sensor_msgs::PointCloud2 tsfm_out_cloud2;
         sensor_msgs::PointCloud2 pre_out_cloud2;
         sensor_msgs::PointCloud2 submap_out_cloud2;

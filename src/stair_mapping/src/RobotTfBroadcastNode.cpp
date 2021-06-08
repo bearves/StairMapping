@@ -67,8 +67,6 @@ namespace stair_mapping
         transformStamped.transform.rotation.z = q_corrected.z();
         transformStamped.transform.rotation.w = q_corrected.w();
 
-        //ROS_INFO("Robot tf: %f %f %f", -p / M_PI * 180, r / M_PI * 180, y / M_PI * 180);
-
         br.sendTransform(transformStamped);
     }
 

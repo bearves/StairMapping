@@ -3,6 +3,7 @@ project(stair_mapping)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_BUILD_TYPE RELEASE)
+set(VERBOSE_INFO OFF)
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
@@ -61,11 +62,17 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
   ${CERES_INCLUDE_DIRS}
 )
-add_definitions(${EIGEN_DEFINITIONS})
 
 link_directories(
   ${CERES_LINK_DIRS}
 )
+
+add_definitions(${EIGEN_DEFINITIONS})
+if (${VERBOSE_INFO})
+  add_definitions(-DVERBOSE_INFO)
+else()
+  remove_definitions(-DVERBOSE_INFO)
+endif()
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}

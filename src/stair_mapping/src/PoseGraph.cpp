@@ -127,7 +127,14 @@ namespace stair_mapping
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
 
         ceres::Solve(options, &problem, &summary);
+#if VERBOSE_INFO
         ROS_INFO("%s", summary.FullReport().c_str());
+#else
+        ROS_INFO("Backend optimization time: %lf ms", 
+            summary.total_time_in_seconds*1000.0);
+#endif
+
+        
         return summary.IsSolutionUsable();
     }
 
