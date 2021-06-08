@@ -120,23 +120,27 @@ namespace stair_mapping
 
         p_out_cloud = current_sm->getSubmapPoints();
     }
-    void Terrain3dMapper::buildGlobalMap()
+
+    void Terrain3dMapper::buildGlobalMap(bool display_raw_result)
     {
         // optimize global map, update submap tf matrices
         global_map_.runGlobalPoseOptimizer();
         // update global points, update compensation matrices
-        auto submap_cnt = global_map_.updateGlobalMapPoints();
+        auto submap_cnt = global_map_.updateGlobalMapPoints(display_raw_result);
         ROS_INFO("Submap count: %ld", submap_cnt);
 
         correct_tf_ = global_map_.getCorrectTf();
-
-        const PointCloudT::Ptr raw_pc = global_map_.getGlobalMapRawPoints();
-        PreProcessor::downSample(raw_pc, global_raw_points_, 0.02, 1);
 
         const PointCloudT::Ptr opt_pc = global_map_.getGlobalMapOptPoints();
         PreProcessor::downSample(opt_pc, global_opt_points_, 0.02, 1);
 
         ground_patch_points_ = global_map_.getGroundPatchPoints();
+
+        if (display_raw_result)
+        {
+            const PointCloudT::Ptr raw_pc = global_map_.getGlobalMapRawPoints();
+            PreProcessor::downSample(raw_pc, global_raw_points_, 0.02, 1);
+        }
     }
 
     Eigen::Matrix4d Terrain3dMapper::getLastSubMapRawTf()

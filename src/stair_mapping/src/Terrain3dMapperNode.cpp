@@ -12,18 +12,24 @@ namespace stair_mapping
     {
         using namespace Eigen;
 
+        node.param("display_process_details", display_process_details_, false);
+
         imu_calibrator_.setParam(node);
         current_imu_from_camera_mat_ = Matrix4d::Identity();
         current_imu_from_base_mat_ = Matrix4d::Identity();
         current_odom_mat_ = Matrix4d::Identity();
 
-        imu_transformed_pub_ = node.advertise<sensor_msgs::PointCloud2>("transformed_points", 1);
-        preprocess_pub_ = node.advertise<sensor_msgs::PointCloud2>("preprocessed_points", 1);
-        submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
-        global_map_opt_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_opt_points", 1);
-        global_map_raw_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_raw_points", 1);
-        gnd_patch_pub_ = node.advertise<sensor_msgs::PointCloud2>("gnd_patch_points", 1);
+        if (display_process_details_)
+        {
+            imu_transformed_pub_ = node.advertise<sensor_msgs::PointCloud2>("transformed_points", 1);
+            preprocess_pub_ = node.advertise<sensor_msgs::PointCloud2>("preprocessed_points", 1);
+            submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
+            global_map_raw_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_raw_points", 1);
+            gnd_patch_pub_ = node.advertise<sensor_msgs::PointCloud2>("gnd_patch_points", 1);
+        }
+
         corrected_odom_pub_ = node.advertise<geometry_msgs::PoseStamped>("corrected_robot_pose", 1);
+        global_map_opt_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_opt_points", 1);
         tip_points_pub_ = node.advertise<sensor_msgs::PointCloud2>("tip_points", 1);
 
         odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &Terrain3dMapperNode::odomMsgCallback, this);
@@ -62,18 +68,24 @@ namespace stair_mapping
 
         pcl::transformPointCloud(*p_in_cloud, *p_tr_cloud, t_imu_camera);
 
-        pcl::toROSMsg(*p_tr_cloud, tsfm_out_cloud2);
-        tsfm_out_cloud2.header.frame_id = "base_world";
-        tsfm_out_cloud2.header.stamp = msg->header.stamp;
-        imu_transformed_pub_.publish(tsfm_out_cloud2);
+        if (display_process_details_)
+        {
+            pcl::toROSMsg(*p_tr_cloud, tsfm_out_cloud2);
+            tsfm_out_cloud2.header.frame_id = "base_world";
+            tsfm_out_cloud2.header.stamp = msg->header.stamp;
+            imu_transformed_pub_.publish(tsfm_out_cloud2);
+        }
 
         // preprocess
         terrain_mapper_.preprocess(p_tr_cloud, p_pre_cloud);
 
-        pcl::toROSMsg(*p_pre_cloud, pre_out_cloud2);
-        pre_out_cloud2.header.frame_id = "base_world";
-        pre_out_cloud2.header.stamp = msg->header.stamp;
-        preprocess_pub_.publish(pre_out_cloud2);
+        if (display_process_details_)
+        {
+            pcl::toROSMsg(*p_pre_cloud, pre_out_cloud2);
+            pre_out_cloud2.header.frame_id = "base_world";
+            pre_out_cloud2.header.stamp = msg->header.stamp;
+            preprocess_pub_.publish(pre_out_cloud2);
+        }
 
         // match submaps
         PointCloudT::Ptr p_submap_cloud(new PointCloudT);
@@ -82,10 +94,13 @@ namespace stair_mapping
         odom_msg_mtx_.unlock();
         terrain_mapper_.matchSubmap(p_pre_cloud, p_submap_cloud, t_frame_odom, tip_states);
 
-        pcl::toROSMsg(*p_submap_cloud, submap_out_cloud2);
-        submap_out_cloud2.header.frame_id = "base_world";
-        submap_out_cloud2.header.stamp = msg->header.stamp;
-        submap_pub_.publish(submap_out_cloud2);
+        if (display_process_details_)
+        {
+            pcl::toROSMsg(*p_submap_cloud, submap_out_cloud2);
+            submap_out_cloud2.header.frame_id = "base_world";
+            submap_out_cloud2.header.stamp = msg->header.stamp;
+            submap_pub_.publish(submap_out_cloud2);
+        }
     }
 
     void Terrain3dMapperNode::imuMsgCallback(const sensor_msgs::ImuConstPtr &msg)
@@ -163,7 +178,7 @@ namespace stair_mapping
             ros::Rate map_publish_rate(5);
             while(ros::ok())
             {
-                terrain_mapper_.buildGlobalMap();
+                terrain_mapper_.buildGlobalMap(display_process_details_);
                 publishMap();
                 map_publish_rate.sleep();
             }
@@ -179,19 +194,22 @@ namespace stair_mapping
         opt_pc2.header.stamp = ros::Time::now();
         global_map_opt_pub_.publish(opt_pc2);
 
-        sensor_msgs::PointCloud2 raw_pc2;
-        auto p_global_raw_pc = terrain_mapper_.getGlobalMapRawPoints();
-        pcl::toROSMsg(*p_global_raw_pc, raw_pc2);
-        raw_pc2.header.frame_id = "map";
-        raw_pc2.header.stamp = ros::Time::now();
-        global_map_raw_pub_.publish(raw_pc2);
+        if (display_process_details_)
+        {
+            sensor_msgs::PointCloud2 raw_pc2;
+            auto p_global_raw_pc = terrain_mapper_.getGlobalMapRawPoints();
+            pcl::toROSMsg(*p_global_raw_pc, raw_pc2);
+            raw_pc2.header.frame_id = "map";
+            raw_pc2.header.stamp = ros::Time::now();
+            global_map_raw_pub_.publish(raw_pc2);
 
-        sensor_msgs::PointCloud2 gnd_patch_pc2;
-        auto p_gnd_patch_pc = terrain_mapper_.getGroundPatchPoints();
-        pcl::toROSMsg(*p_gnd_patch_pc, gnd_patch_pc2);
-        gnd_patch_pc2.header.frame_id = "map";
-        gnd_patch_pc2.header.stamp = ros::Time::now();
-        gnd_patch_pub_.publish(gnd_patch_pc2);
+            sensor_msgs::PointCloud2 gnd_patch_pc2;
+            auto p_gnd_patch_pc = terrain_mapper_.getGroundPatchPoints();
+            pcl::toROSMsg(*p_gnd_patch_pc, gnd_patch_pc2);
+            gnd_patch_pc2.header.frame_id = "map";
+            gnd_patch_pc2.header.stamp = ros::Time::now();
+            gnd_patch_pub_.publish(gnd_patch_pc2);
+        }
     }
 
     void Terrain3dMapperNode::publishCorrectedTf(const ros::Time &stamp, const Eigen::Matrix4d &original_robot_tf)

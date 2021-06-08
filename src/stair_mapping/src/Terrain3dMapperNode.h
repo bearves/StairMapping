@@ -41,6 +41,8 @@ namespace stair_mapping
         ros::Publisher corrected_odom_pub_;
         ros::Publisher tip_points_pub_;
 
+        bool display_process_details_{false};
+
         tf2_ros::TransformBroadcaster br_;
 
         std::thread th_;        

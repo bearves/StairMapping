@@ -22,6 +22,7 @@ namespace stair_mapping
         ros::Subscriber pose_sub_;
         ros::Publisher height_pcl_pub_;
         ros::Publisher ground_truth_pcl_pub_;
+        bool is_ground_truth_needed_{false};
 
         ElevationGrid eg_;
         PointCloudT::Ptr global_map_;

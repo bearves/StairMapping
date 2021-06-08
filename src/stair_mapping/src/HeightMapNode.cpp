@@ -9,8 +9,13 @@ namespace stair_mapping
       global_map_(new PointCloudT),
       ground_truth_(new PointCloudT)
     {
+        nh.param("need_ground_truth", is_ground_truth_needed_, false);
+
         height_pcl_pub_ = nh.advertise<sensor_msgs::PointCloud2>("global_height_map", 1);
-        ground_truth_pcl_pub_ = nh.advertise<sensor_msgs::PointCloud2>("ground_truth", 1);
+        if (is_ground_truth_needed_)
+        {
+            ground_truth_pcl_pub_ = nh.advertise<sensor_msgs::PointCloud2>("ground_truth", 1);
+        }
         global_pcl_sub_ = nh.subscribe("global_map_opt_points", 1, &HeightMapNode::pclDataCallback, this);
         pose_sub_ = nh.subscribe("corrected_robot_pose", 10, &HeightMapNode::poseCallback, this);
     }
@@ -112,6 +117,9 @@ namespace stair_mapping
 
     void HeightMapNode::publishGroundTruth()
     {
+        if (!is_ground_truth_needed_)
+            return;
+
         generateGroundTruth();
 
         th_ = std::thread([this](){

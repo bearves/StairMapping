@@ -18,7 +18,7 @@ namespace stair_mapping
             const Eigen::Matrix4d &t_frame_odom,
             const Eigen::Matrix<double, 4, 6> &tip_states);
 
-        void buildGlobalMap();
+        void buildGlobalMap(bool display_raw_result);
 
         Eigen::Matrix4d getLastSubMapRawTf();
         Eigen::Matrix4d getLastSubMapOptTf();

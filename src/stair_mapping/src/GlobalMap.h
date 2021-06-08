@@ -25,7 +25,7 @@ public:
     );
 
     bool runGlobalPoseOptimizer();
-    std::size_t updateGlobalMapPoints();
+    std::size_t updateGlobalMapPoints(bool display_raw_result);
 
     Eigen::Matrix4d getLastSubMapRawTf();
     Eigen::Matrix4d getLastSubMapOptTf();

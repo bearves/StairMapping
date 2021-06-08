@@ -127,7 +127,7 @@ namespace stair_mapping
         return p_foothold_ground_patch_;
     }
 
-    std::size_t GlobalMap::updateGlobalMapPoints()
+    std::size_t GlobalMap::updateGlobalMapPoints(bool display_raw_result)
     {
         using namespace Eigen;
 
@@ -148,16 +148,19 @@ namespace stair_mapping
         // the map building process is thread safe
         int lastn = submap_cnt - 100;
 
-        for (int i = 0; i < submap_cnt; i++)
+        if (display_raw_result)
         {
-            if (i < lastn)
-                continue;
+            for (int i = 0; i < submap_cnt; i++)
+            {
+                if (i < lastn)
+                    continue;
 
-            pcl::transformPointCloud(
-                *(submaps_[i]->getSubmapPoints()),
-                transformed_raw_frame,
-                T_m2gm_raw_[i]);
-            p_all_raw_points->operator+=(transformed_raw_frame);
+                pcl::transformPointCloud(
+                    *(submaps_[i]->getSubmapPoints()),
+                    transformed_raw_frame,
+                    T_m2gm_raw_[i]);
+                p_all_raw_points->operator+=(transformed_raw_frame);
+            }
         }
 
         pcl::console::TicToc time;
