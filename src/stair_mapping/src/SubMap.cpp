@@ -5,7 +5,7 @@
 #include <pcl/registration/gicp6d.h>
 #include <pcl/console/time.h>
 #include <pcl/common/common.h>
-#include <pcl/features/normal_3d.h>
+#include <pcl/features/normal_3d_omp.h>
 #include <pcl/search/kdtree.h>
 #include "PoseGraph.h"
 
@@ -219,10 +219,10 @@ namespace stair_mapping
     )
     {
         pcl::search::KdTree<PointT>::Ptr p_tree(new pcl::search::KdTree<PointT>);
-        pcl::NormalEstimation<PointT, pcl::Normal> ne;
-        ne.setSearchMethod(p_tree);
+        pcl::NormalEstimationOMP<PointT, pcl::Normal> ne;
         ne.setInputCloud(input_cloud);
-        ne.setKSearch(20);
+        ne.setSearchMethod(p_tree);
+        ne.setKSearch(10);
         ne.compute(*normal_cloud);
     }
 

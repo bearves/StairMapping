@@ -12,8 +12,8 @@
   <param name="imu_pose_calibrate_y" value="0.0"/>
   <param name="need_ground_truth" value="false"/>
   <param name="display_process_details" value="false"/>
-  <node name="terrain_3d_map_node" pkg="stair_mapping" type="terrain_3d_map_node" output="screen" />
-  <node name="height_map_node" pkg="stair_mapping" type="height_map_node" output="screen" />
+  <node name="robot_tf_broadcast_node" pkg="stair_mapping" type="robot_tf_broadcast_node" />
+  <node name="stair_model_match_node" pkg="stair_mapping" type="stair_model_match_node" output="screen"/>
   <!--
   <node pkg="rviz" type="rviz" name="rviz" args="-d $(find stair_mapping)/rviz/offline_data_view.rviz"/>
   -->
