@@ -99,7 +99,7 @@ add_executable(terrain_3d_map_node ${TERRAIN_3D_MAP_SOURCE})
 set(HEIGHT_MAP_SOURCE src/height_map_node.cpp src/ElevationGrid.cpp src/HeightMapNode.cpp)
 add_executable(height_map_node ${HEIGHT_MAP_SOURCE})
 
-add_executable(stair_model_match_node src/stair_model_match_node.cpp src/PreProcessor.cpp)
+add_executable(stair_kp_extract_node src/stair_kp_extract_node.cpp src/PreProcessor.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -155,7 +155,7 @@ target_link_libraries(robot_tf_broadcast_node
   ${PCL_LIBRARIES}
 )
 
-target_link_libraries(stair_model_match_node
+target_link_libraries(stair_kp_extract_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${Eigen3_LIBRARIES}
