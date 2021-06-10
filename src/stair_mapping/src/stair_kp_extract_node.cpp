@@ -60,7 +60,7 @@ void pclDataCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
     ne.setKSearch(10);
     ne.compute(*cloud_normal);
 
-    PointCloudTI::Ptr keypoints(new PointCloudTI); //存放最后的特征点提取结果
+    PointCloudTI::Ptr keypoints(new PointCloudTI); 
 
     //key_point_sift(cloud_ds, cloud_normal, keypoints);
     key_point_harris(cloud_ds, cloud_normal, keypoints);
@@ -92,16 +92,16 @@ void key_point_harris(PointCloudT::Ptr& cloud_in, PointCloudN::Ptr& cloud_normal
     harris_detector.setRadiusSearch(0.05);
     harris_detector.setThreshold(0.00000001);
     harris_detector.setNumberOfThreads(6);
-    harris_detector.setInputCloud(cloud_in);  //设置输入点云
-    harris_detector.compute(*cloud_out); //结果存放在Harris_keypoints
+    harris_detector.setInputCloud(cloud_in);  
+    harris_detector.compute(*cloud_out); 
 }
 
 void key_point_iss3d(PointCloudT::Ptr& cloud_in, PointCloudN::Ptr& cloud_normal_in, PointCloudTI::Ptr& cloud_out)
 {
     pcl::ISSKeypoint3D<PointT, PointTI> iss_detector;
     pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>); 
-    //参数设置
-    double model_solution = 0.01; //模型分辨率，参数越小，采取的关键点越少，0.4
+
+    double model_solution = 0.01; 
     iss_detector.setSearchMethod(tree);
     iss_detector.setNormals(cloud_normal_in);
     iss_detector.setSalientRadius(6 * model_solution);
@@ -116,13 +116,13 @@ void key_point_iss3d(PointCloudT::Ptr& cloud_in, PointCloudN::Ptr& cloud_normal_
 
 void key_point_sift(PointCloudT::Ptr &cloud_in, PointCloudN::Ptr &cloud_normal_in, PointCloudTI::Ptr &cloud_out)
 {
-    pcl::SIFTKeypoint<PointT, PointTI> sift_detector;                                                //定义sift检测器
-    pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>);                      //定义搜索方法
-    //参数设置
-    const float min_scale = 0.01f;    //the standard deviation of the smallest scale in the scale space，设置的越小，提取的关键点越多
-    const int n_octaves = 10;           //the number of octaves (i.e. doublings os scale) to compute，//尺度空间层数,小、关键点多
-    const int n_scales_per_octave = 2;  //the number of scales to compute within each octave, 设置的越小，提取的关键点越多
-    const float min_contrast = 0.01f; //the minimum contrast required for detection,根据点云设置大小，越小关键点越多
+    pcl::SIFTKeypoint<PointT, PointTI> sift_detector; 
+    pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>);  
+
+    const float min_scale = 0.01f;    //the standard deviation of the smallest scale in the scale space
+    const int n_octaves = 10;           //the number of octaves (i.e. doublings os scale) to compute
+    const int n_scales_per_octave = 2;  //the number of scales to compute within each octave
+    const float min_contrast = 0.01f; //the minimum contrast required for detection
     sift_detector.setSearchMethod(tree);
     sift_detector.setScales(min_scale, n_octaves, n_scales_per_octave);
     sift_detector.setMinimumContrast(min_contrast);
