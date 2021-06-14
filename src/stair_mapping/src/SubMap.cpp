@@ -1,12 +1,6 @@
 #include "SubMap.h"
 #include <exception>
-#include <pcl/registration/ndt.h>
-#include <pcl/registration/icp.h>
-#include <pcl/registration/gicp6d.h>
-#include <pcl/console/time.h>
-#include <pcl/common/common.h>
-#include <pcl/features/normal_3d_omp.h>
-#include <pcl/search/kdtree.h>
+#include <open3d/Open3D.h>
 #include "PoseGraph.h"
 
 namespace stair_mapping
@@ -15,8 +9,8 @@ namespace stair_mapping
     SubMap::SubMap(int max_stored_pcl_count):
         max_stored_frame_count_(max_stored_pcl_count),
         current_count_(0),
-        p_submap_points_(new PointCloudT),
-        p_cropped_submap_points_(new PointCloudT)
+        p_submap_points_(new PtCld),
+        p_cropped_submap_points_(new PtCld)
     {
     }
 
@@ -28,7 +22,7 @@ namespace stair_mapping
         T_odom_.clear();
     }
 
-    void SubMap::addFrame(PointCloudT frame, 
+    void SubMap::addFrame(PtCld frame, 
         Eigen::Matrix4d t_f2sm, 
         Eigen::Matrix4d t_frame_odom,
         const Eigen::Matrix<double, 4, 6>& tip_states)
@@ -56,13 +50,12 @@ namespace stair_mapping
     {
         using namespace Eigen;
 
-        PointCloudT transformed_frame;
-        PointCloudT::Ptr p_all_points(new PointCloudT);
+        PtCldPtr p_all_points = std::make_shared<PtCld>();
 
         // add all frame points to submap
         for(int i = 0; i < current_count_; i++)
         {
-            pcl::transformPointCloud(frames_[i], transformed_frame, T_f2sm_[i]);
+            auto transformed_frame = frames_[i].Transform(T_f2sm_[i]);
             p_all_points->operator+=( transformed_frame );
         }
         *p_submap_points_ = *p_all_points;
@@ -71,17 +64,17 @@ namespace stair_mapping
         PreProcessor::crop(
             p_submap_points_,
             p_cropped_submap_points_,
-            Vector3f(0, -0.5, -2),
-            Vector3f(1.5, 0.5, 0.4));
+            Vector3d(0, -0.5, -2),
+            Vector3d(1.5, 0.5, 0.4));
     }
 
     double SubMap::match(
-        const PointCloudT::Ptr& frame, 
+        const PtCldPtr& frame, 
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& t_match_result,
         InfoMatrix& info_match_result)
     {
-        int point_counts = frame->width * frame->height;
+        int point_counts = frame->points_.size();
         
         if (point_counts < 300)
         {
@@ -93,7 +86,7 @@ namespace stair_mapping
             t_match_result = Eigen::Matrix4d::Identity();
             info_match_result.setZero();
             info_match_result.diagonal() << 100, 100, 100, 20, 20, 20;
-            return 0; // best score
+            return 1; // best score
         }
         else
         {
@@ -118,77 +111,79 @@ namespace stair_mapping
     }
 
     double SubMap::matchIcp(
-        const PointCloudT::Ptr& input_cloud, 
-        const PointCloudT::Ptr& target_cloud, 
+        const PtCldPtr& input_cloud, 
+        const PtCldPtr& target_cloud, 
         const Eigen::Matrix4d& init_guess, 
         Eigen::Matrix4d& transform_result,
         InfoMatrix& transform_info)
     {
-        PointCloudT::Ptr p_input_cloud_init(new PointCloudT);
-        PointCloudT::Ptr p_input_cloud_cr(new PointCloudT);
-        PointCloudT::Ptr p_target_cloud_cr(new PointCloudT);
-        PointCloudN::Ptr p_input_normal_cr(new PointCloudN);
-        PointCloudN::Ptr p_target_normal_cr(new PointCloudN);
-        PointCloudTN::Ptr p_input_tn(new PointCloudTN);
-        PointCloudTN::Ptr p_target_tn(new PointCloudTN);
+        using namespace open3d::geometry;
+
+        PtCldPtr p_input_cloud_init = std::make_shared<PtCld>();
+        PtCldPtr p_input_cloud_cr = std::make_shared<PtCld>();
+        PtCldPtr p_target_cloud_cr = std::make_shared<PtCld>();
 
         // firstly transform the input cloud with init_guess to 
         // make the two clouds overlap as much as possible
-        pcl::transformPointCloud(*input_cloud, *p_input_cloud_init, init_guess);
+        *p_input_cloud_init = input_cloud->Transform(init_guess);
 
         // since the stairs are very similar structures
         // crop on Z and X axis to avoid the stair-jumping mismatch
         // aka. match this step to the next
-        PointT min_input, max_input, min_target, max_target;
-        pcl::getMinMax3D(*p_input_cloud_init, min_input, max_input);
-        pcl::getMinMax3D(*target_cloud, min_target, max_target);
+        auto max_input = p_input_cloud_init->GetMaxBound();
+        auto min_input = p_input_cloud_init->GetMinBound();
+        auto max_target = target_cloud->GetMaxBound();
+        auto min_target = target_cloud->GetMinBound();
 
         double loose = 0.1;
-        double z_crop_max = std::min(max_input.z, max_target.z) + loose;
-        double z_crop_min = std::max(min_input.z, min_target.z) - loose;
-        double x_crop_max = std::min(max_input.x, max_target.x) + loose;
-        double x_crop_min = std::max(min_input.x, min_target.x) - loose;
+        double z_crop_max = std::min(max_input.z(), max_target.z()) + loose;
+        double z_crop_min = std::max(min_input.z(), min_target.z()) - loose;
+        double x_crop_max = std::min(max_input.x(), max_target.x()) + loose;
+        double x_crop_min = std::max(min_input.x(), min_target.x()) - loose;
 
         PreProcessor::crop(p_input_cloud_init, p_input_cloud_cr, 
-            Eigen::Vector3f(x_crop_min, -0.4, z_crop_min), 
-            Eigen::Vector3f(x_crop_max, 0.4, z_crop_max));
+            Eigen::Vector3d(x_crop_min, -0.4, z_crop_min), 
+            Eigen::Vector3d(x_crop_max, 0.4, z_crop_max));
         PreProcessor::crop(target_cloud, p_target_cloud_cr, 
-            Eigen::Vector3f(x_crop_min, -0.4, z_crop_min), 
-            Eigen::Vector3f(x_crop_max, 0.4, z_crop_max));
+            Eigen::Vector3d(x_crop_min, -0.4, z_crop_min), 
+            Eigen::Vector3d(x_crop_max, 0.4, z_crop_max));
 
-        if (p_input_cloud_cr->empty() || p_target_cloud_cr->empty())
+        if (p_input_cloud_cr->IsEmpty() || p_target_cloud_cr->IsEmpty())
         {
             ROS_WARN("Empty input cloud when matching");
             transform_result = init_guess;
-            return 1e8;
+            return -1e8;
         }
 
-        pcl::console::TicToc time;
-        time.tic();
+        open3d::utility::Timer timer;
+        timer.Start();
+
         // compute normal for each clouds
-        getNormal(p_input_cloud_cr, p_input_normal_cr);
-        getNormal(p_target_cloud_cr, p_target_normal_cr);
-        pcl::concatenateFields(*p_input_cloud_cr, *p_input_normal_cr, *p_input_tn);
-        pcl::concatenateFields(*p_target_cloud_cr, *p_target_normal_cr, *p_target_tn);
+        p_input_cloud_cr->EstimateNormals(KDTreeSearchParamKNN(10));
+        p_target_cloud_cr->EstimateNormals(KDTreeSearchParamKNN(10));
 
         // ICP with normal
-        pcl::IterativeClosestPointWithNormals<PointTN, PointTN> icp;
+        auto result = open3d::pipelines::registration::RegistrationICP(
+            *p_input_cloud_cr, *p_target_cloud_cr,
+            0.08, Eigen::Matrix4d::Identity(),
+            open3d::pipelines::registration::TransformationEstimationPointToPlane(),
+            open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
+        );
+        transform_info = open3d::pipelines::registration::GetInformationMatrixFromPointClouds(
+            *p_input_cloud_cr,
+            *p_target_cloud_cr,
+            0.08,
+            result.transformation_
+        );
 
-        PointCloudTN::Ptr icp_result_cloud(new PointCloudTN);
-        icp.setMaximumIterations(20);
-        icp.setMaxCorrespondenceDistance(0.08);
-        icp.setTransformationEpsilon(1e-6);
-        
-        icp.setInputSource(p_input_tn);
-        icp.setInputTarget(p_target_tn);
+        //transform_info = computeInfomation(icp_result_cloud, p_target_tn);
 
-        icp.align(*icp_result_cloud);
-        transform_info = computeInfomation(icp_result_cloud, p_target_tn);
-        ROS_INFO("Applied ICP iteration(s) in %lf ms", time.toc());
+        timer.Stop();
+        ROS_INFO("Applied ICP iteration(s) in %lf ms", timer.GetDuration());
 
-        if (icp.hasConverged())
+        if (result.fitness_ > 0.6)
         {
-            transform_result = icp.getFinalTransformation().cast<double>() * init_guess;
+            transform_result = result.transformation_ * init_guess;
         }
         else
         {
@@ -210,36 +205,23 @@ namespace stair_mapping
             transform_result = init_guess;
         }
 
-        return icp.getFitnessScore();
-    }
-
-    void SubMap::getNormal(
-        const PointCloudT::Ptr& input_cloud,
-        const PointCloudN::Ptr& normal_cloud
-    )
-    {
-        pcl::search::KdTree<PointT>::Ptr p_tree(new pcl::search::KdTree<PointT>);
-        pcl::NormalEstimationOMP<PointT, pcl::Normal> ne;
-        ne.setInputCloud(input_cloud);
-        ne.setSearchMethod(p_tree);
-        ne.setKSearch(10);
-        ne.compute(*normal_cloud);
+        return result.fitness_;
     }
 
     InfoMatrix SubMap::computeInfomation(
-        const PointCloudTN::Ptr& result_cloud,
-        const PointCloudTN::Ptr& target_cloud
+        const PtCldPtr& result_cloud,
+        const PtCldPtr& target_cloud
     )
     {
         using namespace Eigen;
-        size_t pt_counts = target_cloud->width * target_cloud->height;
+        size_t pt_counts = target_cloud->points_.size();
         InfoMatrix info_mat;
         info_mat.setZero();
 
-        for(auto pt : *target_cloud)
+        for(int i = 0; i < pt_counts; i++)
         {
-            Vector3d p(pt.x, pt.y, pt.z);
-            Vector3d n(pt.normal_x, pt.normal_y, pt.normal_z);
+            Vector3d p(target_cloud->points_[i]);
+            Vector3d n(target_cloud->normals_[i]);
             Vector3d pxn = p.cross(n);
             auto nt = n.transpose();
             auto pxnt = pxn.transpose();
@@ -295,12 +277,12 @@ namespace stair_mapping
         return transformed_tip_pos;
     }
 
-    const PointCloudT::Ptr SubMap::getSubmapPoints()
+    const PtCldPtr SubMap::getSubmapPoints()
     {
         return this->p_submap_points_;
     }
 
-    const PointCloudT::Ptr SubMap::getCroppedSubmapPoints()
+    const PtCldPtr SubMap::getCroppedSubmapPoints()
     {
         return this->p_cropped_submap_points_;
     }

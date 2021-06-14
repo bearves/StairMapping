@@ -1,13 +1,12 @@
 #include "HeightMapNode.h"
-#include <pcl/common/transforms.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <open3d_conversions/open3d_conversions.h>
 
 namespace stair_mapping
 {
     HeightMapNode::HeightMapNode(ros::NodeHandle& nh)
     : eg_(0.9, 2.4, 0.03, -10),
-      global_map_(new PointCloudT),
-      ground_truth_(new PointCloudT)
+      global_map_(new PtCld),
+      ground_truth_(new PtCld)
     {
         nh.param("need_ground_truth", is_ground_truth_needed_, false);
 
@@ -30,10 +29,10 @@ namespace stair_mapping
         Quaterniond q(ori.w, ori.x, ori.y, ori.z);
         Affine3d pose = t * q;
         // transform global 3d map points to the body cs
-        PointCloudT::Ptr local_map(new PointCloudT);
-        PointCloudT::Ptr height_map(new PointCloudT);
+        PtCldPtr local_map = std::make_shared<PtCld>();
+        PtCldPtr height_map = std::make_shared<PtCld>();
         mtx_.lock();
-        pcl::transformPointCloud(*global_map_, *local_map, pose.inverse().matrix());
+        *local_map = global_map_->Transform(pose.inverse().matrix());
         mtx_.unlock();
         // generate height map
         eg_.update(local_map);
@@ -41,7 +40,7 @@ namespace stair_mapping
         eg_.getPclFromHeightMap(height_map);
 
         sensor_msgs::PointCloud2 height_map_2;
-        pcl::toROSMsg(*height_map, height_map_2);
+        open3d_conversions::open3dToRos(*height_map, height_map_2);
         height_map_2.header.frame_id = "base_world";
         height_map_2.header.stamp = msg->header.stamp;
 
@@ -52,7 +51,7 @@ namespace stair_mapping
     {
         // store last 3d map points locally
         mtx_.lock();
-        pcl::fromROSMsg(*msg, *global_map_);
+        open3d_conversions::rosToOpen3d(msg, *global_map_);
         mtx_.unlock();
     }
 
@@ -65,7 +64,7 @@ namespace stair_mapping
         double offsetz = -0.36;
         int stair_cnt = 9;
 
-        ground_truth_->clear();
+        ground_truth_->Clear();
 
 
         double resolution = 0.01;
@@ -73,46 +72,46 @@ namespace stair_mapping
         {
             for (int j = -60; j < 61; j++)
             {
-                PointT pt;
+                Eigen::Vector3d pt;
 
-                pt.x = stairx0 + i * resolution;
-                pt.y = j * resolution;
+                pt.x() = stairx0 + i * resolution;
+                pt.y() = j * resolution;
 
-                double d = pt.x - stairx0;
-                if (pt.x < stairx0-0.001)
+                double d = pt.x() - stairx0;
+                if (pt.x() < stairx0-0.001)
                 {
                     // ground
-                    pt.z = 0;
+                    pt.z() = 0;
                 }
                 else if (d / stair_length > stair_cnt)
                 {
                     // up ground
-                    pt.z = stair_cnt * stair_height;
+                    pt.z() = stair_cnt * stair_height;
                 }
                 else
                 {
                     // stair steps
-                    pt.z = ceil((d+0.005) / stair_length) * stair_height;
+                    pt.z() = ceil((d+0.005) / stair_length) * stair_height;
                     
                     if (i % (int)round(stair_length/resolution) == 0)
                     {
                         // build vertical plane
                         for (int k = 0; k < stair_height/resolution - 0.0011; k++)
                         {
-                            PointT vpt;
-                            vpt.x = pt.x; 
-                            vpt.y = pt.y;
-                            vpt.z = pt.z - (k+1) * resolution;
-                            vpt.z += offsetz;
-                            ground_truth_->push_back(vpt);
+                            Eigen::Vector3d vpt;
+                            vpt.x() = pt.x(); 
+                            vpt.y() = pt.y();
+                            vpt.z() = pt.z() - (k+1) * resolution;
+                            vpt.z() += offsetz;
+                            ground_truth_->points_.push_back(vpt);
                         }
                     }
                 }
-                pt.z += offsetz;
-                ground_truth_->push_back(pt);
+                pt.z() += offsetz;
+                ground_truth_->points_.push_back(pt);
             }
         }
-        pcl::toROSMsg(*ground_truth_, ground_truth_pc2_);
+        open3d_conversions::open3dToRos(*ground_truth_, ground_truth_pc2_);
     }
 
     void HeightMapNode::publishGroundTruth()

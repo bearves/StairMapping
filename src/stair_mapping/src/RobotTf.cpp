@@ -1,12 +1,11 @@
 #include "RobotTf.h"
 #include <tf2_ros/transform_listener.h>
-#include <pcl_ros/transforms.h>
 
 namespace stair_mapping
 {
 
     RobotKinetics::RobotKinetics()
-        : p_tip_pts_wrt_body_(new PointCloudTC)
+        : p_tip_pts_wrt_body_(new PtCld)
     {
         hip_pos_ << -0.340, -0.340, 0.000, 0.340,  0.340,  0.000,
                     -0.050,  0.050, 0.175, 0.050, -0.050, -0.175,
@@ -30,7 +29,7 @@ namespace stair_mapping
 
     void RobotKinetics::updateTipPosition(const ros::Time &stamp, const boost::array<double, 18UL> &tip_pos)
     {
-        p_tip_pts_wrt_body_->clear();
+        p_tip_pts_wrt_body_->Clear();
 
         for (int i = 0; i < 6; i++)
         {
@@ -42,27 +41,23 @@ namespace stair_mapping
 
             // calculate tip pos wrt body (base_link)
             tip_pos_wrt_body_.col(i) = hip_cs_[i] * tip_pos_wrt_hip + hip_pos_.col(i);
-            PointTC point;
-            point.getVector3fMap() = tip_pos_wrt_body_.col(i).cast<float>();
 
+            Eigen::Vector3d tip_color;
             if (touch_prob_[i] > 0.9) // touch, red
             {
-                point.r = 255;
-                point.g = 0;
-                point.b = 0;
+                tip_color << 255, 0, 0;
             }
             else // not touch, green
             {
-                point.r = 0;
-                point.g = 255;
-                point.b = 0;
+                tip_color << 0, 255, 0;
             }
 
-            p_tip_pts_wrt_body_->push_back(point);
+            p_tip_pts_wrt_body_->points_.push_back(tip_pos_wrt_body_.col(i));
+            p_tip_pts_wrt_body_->colors_.push_back(tip_color);
         }
     }
 
-    const PointCloudTC::Ptr RobotKinetics::getTipPoints() const
+    const PtCldPtr RobotKinetics::getTipPoints() const
     {
         return p_tip_pts_wrt_body_;
     }
@@ -156,10 +151,9 @@ namespace stair_mapping
         try
         {
             tf_camera_to_body = buffer.lookupTransform("base_link", "camera_depth_optical_frame", ros::Time(0));
-            Eigen::Matrix4f tm;
-            pcl_ros::transformAsMatrix(tf_camera_to_body.transform, tm);
+            Eigen::Matrix4d tm = transform2EigenMat(tf_camera_to_body.transform);
 
-            imu_tf_from_camera = Eigen::Affine3d(imu_tf_calibrated_).matrix() * tm.cast<double>();
+            imu_tf_from_camera = Eigen::Affine3d(imu_tf_calibrated_).matrix() * tm;
             is_imu_transform_ready_ = true;
         }
         catch (tf2::TransformException &ex)
@@ -168,6 +162,23 @@ namespace stair_mapping
         }
 
         return imu_tf_from_camera;
+    }
+
+    Eigen::Matrix4d ImuCalibrator::transform2EigenMat(const geometry_msgs::Transform &tf)
+    {
+        Eigen::Quaterniond q;
+        q.w() = tf.rotation.w;
+        q.x() = tf.rotation.x;
+        q.y() = tf.rotation.y;
+        q.z() = tf.rotation.z;
+
+        Eigen::Translation3d t;
+        t.x() = tf.translation.x;
+        t.y() = tf.translation.y;
+        t.z() = tf.translation.z;
+
+        Eigen::Affine3d tq(t * q);
+        return tq.matrix();
     }
 
 } // namespace stair_mapping

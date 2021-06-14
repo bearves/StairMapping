@@ -31,9 +31,9 @@ public:
     Eigen::Matrix4d getLastSubMapOptTf();
     Eigen::Matrix4d getCorrectTf();
 
-    const PointCloudT::Ptr getGlobalMapRawPoints();
-    const PointCloudT::Ptr getGlobalMapOptPoints();
-    const PointCloudT::Ptr getGroundPatchPoints();
+    const PtCldPtr getGlobalMapRawPoints();
+    const PtCldPtr getGlobalMapOptPoints();
+    const PtCldPtr getGroundPatchPoints();
 
 private:
     std::vector<SubMap::Ptr> submaps_;
@@ -53,9 +53,9 @@ private:
     // The transform compensate of the submap in the global cs
     std::vector<Eigen::Matrix4d> T_m2gm_compensate_;
 
-    PointCloudT::Ptr p_global_map_raw_points_;
-    PointCloudT::Ptr p_global_map_opt_points_;
-    PointCloudT::Ptr p_foothold_ground_patch_;
+    PtCldPtr p_global_map_raw_points_;
+    PtCldPtr p_global_map_opt_points_;
+    PtCldPtr p_foothold_ground_patch_;
 
     PoseGraph pg_; 
     size_t last_submap_cnt_;
@@ -72,9 +72,9 @@ private:
 
     void estimateFootGroundDistance(
         int submap_count,
-        const PointCloudT::Ptr& ground,
+        const PtCldPtr& ground,
         Eigen::Matrix<double, 4, 6>& last_tip_points,
-        PointCloudT::Ptr& ground_patch,
+        PtCldPtr& ground_patch,
         Eigen::Matrix<double, 1, 6>& distance
     );
 

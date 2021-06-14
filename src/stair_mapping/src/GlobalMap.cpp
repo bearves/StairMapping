@@ -1,14 +1,11 @@
 #include "GlobalMap.h"
-#include <pcl/console/time.h>
-#include <pcl/search/octree.h>
-#include <pcl/common/common.h>
 
 namespace stair_mapping
 {
     GlobalMap::GlobalMap()
-        : p_global_map_raw_points_(new PointCloudT),
-          p_global_map_opt_points_(new PointCloudT),
-          p_foothold_ground_patch_(new PointCloudT),
+        : p_global_map_raw_points_(new PtCld),
+          p_global_map_opt_points_(new PtCld),
+          p_foothold_ground_patch_(new PtCld),
           last_submap_cnt_(0),
           compensation_coe_(0)
     {
@@ -113,16 +110,16 @@ namespace stair_mapping
         return last_opt_tf * r.inverse().matrix();
     }
 
-    const PointCloudT::Ptr GlobalMap::getGlobalMapRawPoints()
+    const PtCldPtr GlobalMap::getGlobalMapRawPoints()
     {
         return p_global_map_raw_points_;
     }
 
-    const PointCloudT::Ptr GlobalMap::getGlobalMapOptPoints()
+    const PtCldPtr GlobalMap::getGlobalMapOptPoints()
     {
         return p_global_map_opt_points_;
     }
-    const PointCloudT::Ptr GlobalMap::getGroundPatchPoints()
+    const PtCldPtr GlobalMap::getGroundPatchPoints()
     {
         return p_foothold_ground_patch_;
     }
@@ -131,10 +128,8 @@ namespace stair_mapping
     {
         using namespace Eigen;
 
-        PointCloudT transformed_opt_frame;
-        PointCloudT transformed_raw_frame;
-        PointCloudT::Ptr p_all_raw_points(new PointCloudT);
-        PointCloudT::Ptr p_all_opt_points(new PointCloudT);
+        PtCldPtr p_all_raw_points = std::make_shared<PtCld>();
+        PtCldPtr p_all_opt_points = std::make_shared<PtCld>();
 
         build_map_mutex_.lock();
         int submap_cnt = submapCount();
@@ -154,28 +149,23 @@ namespace stair_mapping
             {
                 if (i < lastn)
                     continue;
-
-                pcl::transformPointCloud(
-                    *(submaps_[i]->getSubmapPoints()),
-                    transformed_raw_frame,
-                    T_m2gm_raw_[i]);
-                p_all_raw_points->operator+=(transformed_raw_frame);
+                auto transformed_raw_pts = 
+                    submaps_[i]->getSubmapPoints()->Transform(T_m2gm_raw_[i]);
+                p_all_raw_points->operator+=(transformed_raw_pts);
             }
         }
 
-        pcl::console::TicToc time;
-        time.tic();
+        open3d::utility::Timer timer;
+        timer.Start();
 
         for (int i = 0; i < submap_cnt; i++)
         {
             if (i < lastn)
                 continue;
             Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
-            pcl::transformPointCloud(
-                *submaps_[i]->getCroppedSubmapPoints(),
-                transformed_opt_frame,
-                T_m2gm_refined);
-            p_all_opt_points->operator+=(transformed_opt_frame);
+            auto transformed_opt_pts =
+                submaps_[i]->getCroppedSubmapPoints()->Transform(T_m2gm_refined);
+            p_all_opt_points->operator+=(transformed_opt_pts);
         }
 
         // ready for calculating the distance between footholds and generated ground
@@ -186,7 +176,8 @@ namespace stair_mapping
         double c = calculateFootGroundCompensation(submap_cnt, last_tip_points, distance);
         compensation_coe_ += c;
 
-        ROS_INFO("Global map generated time: %lf ms", time.toc());
+        timer.Stop();
+        ROS_INFO("Global map generated time: %lf ms", timer.GetDuration());
         ROS_INFO("Overall compensation: %lf", compensation_coe_);
 
         *p_global_map_opt_points_ = *p_all_opt_points;
@@ -197,15 +188,15 @@ namespace stair_mapping
 
     void GlobalMap::estimateFootGroundDistance(
         int submap_count,
-        const PointCloudT::Ptr &ground,
+        const PtCldPtr &ground,
         Eigen::Matrix<double, 4, 6> &last_tip_points,
-        PointCloudT::Ptr &ground_patch,
+        PtCldPtr &ground_patch,
         Eigen::Matrix<double, 1, 6> &distance)
     {
         using namespace Eigen;
 
-        PointCloudT::Ptr ground_under_robot(new PointCloudT);
-        ground_patch->clear();
+        PtCldPtr ground_under_robot = std::make_shared<PtCld>();
+        ground_patch->Clear();
         distance.setConstant(1e8); // set to an unreal initial number
 
         // get the tip points of last submap w.r.t. global cs
@@ -221,54 +212,41 @@ namespace stair_mapping
         double x_crop_min = last_tip_points.row(0).minCoeff() - loose;
 
         PreProcessor::crop(ground, ground_under_robot,
-                           Vector3f(x_crop_min, y_crop_min, -10),
-                           Vector3f(x_crop_max, y_crop_max, 10));
+                           Vector3d(x_crop_min, y_crop_min, -10),
+                           Vector3d(x_crop_max, y_crop_max, 10));
 
         // check if last tip points are valid
-        if (!last_tip_points.isZero() && !ground_under_robot->empty())
+        if (!last_tip_points.isZero() && !ground_under_robot->IsEmpty())
         {
-            std::vector<PointT, Eigen::aligned_allocator<PointT>> center_list[6];
+            //std::vector<PointT, Eigen::aligned_allocator<PointT>> center_list[6];
             for (int i = 0; i < 6; i++)
             {
                 // skip flying points
                 if (last_tip_points.col(i)(3) < 0.95)
                     continue;
 
-                Vector3f foothold = last_tip_points.col(i).topRows(3).cast<float>();
-                Vector3f direction = -Vector3f::UnitZ();
+                Vector3d foothold = last_tip_points.col(i).topRows(3);
+                Vector3d direction = -Vector3d::UnitZ();
 
                 // crop the area under foottip
-                PointCloudT::Ptr ground_under_foot(new PointCloudT);
-                loose = 0.02;
+                PtCldPtr ground_under_foot = std::make_shared<PtCld>();
+                loose = 0.015;
                 x_crop_max = foothold.x() + loose;
                 x_crop_min = foothold.x() - loose;
                 y_crop_max = foothold.y() + loose;
                 y_crop_min = foothold.y() - loose;
 
                 PreProcessor::crop(ground_under_robot, ground_under_foot,
-                                   Vector3f(x_crop_min, y_crop_min, -10),
-                                   Vector3f(x_crop_max, y_crop_max, 10));
-
-                // build octree for search
-                pcl::octree::OctreePointCloudSearch<PointT> octree(0.02);
-                octree.setInputCloud(ground_under_foot);
-                octree.addPointsFromInputCloud();
-
-                // search from up to down, to find the upmost ground voxel
-                // to the bottommost ground voxel
-                octree.getIntersectedVoxelCenters(
-                    foothold + Vector3f(0, 0, 0.5),
-                    direction, center_list[i]);
+                                   Vector3d(x_crop_min, y_crop_min, -10),
+                                   Vector3d(x_crop_max, y_crop_max, 10));
+                auto voxel_ground = ground_under_foot->VoxelDownSample(0.02);
 
                 // find the upmost vexel to the foothold
                 double max_distance = 0.1;
-                if (center_list[i].size() > 0)
+                double dz = foothold(2) - voxel_ground->GetMaxBound().z();
+                if (fabs(dz) < max_distance) // reject dist too far away
                 {
-                    double dz = foothold(2) - center_list[i][0].z;
-                    if (fabs(dz) < max_distance) // reject dist too far away
-                    {
-                        distance[i] = dz;
-                    }
+                    distance[i] = dz;
                 }
                 *ground_patch += *ground_under_foot;
 

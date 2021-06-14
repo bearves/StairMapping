@@ -25,12 +25,12 @@ namespace stair_mapping
         bool is_ground_truth_needed_{false};
 
         ElevationGrid eg_;
-        PointCloudT::Ptr global_map_;
+        PtCldPtr global_map_;
 
         std::thread th_;
 
         // only for test
-        PointCloudT::Ptr ground_truth_;
+        PtCldPtr ground_truth_;
         sensor_msgs::PointCloud2 ground_truth_pc2_;
 
         void poseCallback(const geometry_msgs::PoseStampedConstPtr &msg);

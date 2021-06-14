@@ -1,13 +1,11 @@
 #pragma once
 
-#include <pcl/point_types.h>
-#include <pcl/point_cloud.h>
+#include <open3d/Open3D.h>
 
-typedef pcl::PointXYZ PointT;
-typedef pcl::PointXYZRGB PointTC;
-typedef pcl::Normal PointN;
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloudT;
-typedef pcl::PointCloud<pcl::Normal> PointCloudN;
-typedef pcl::PointXYZINormal PointTN;
-typedef pcl::PointCloud<PointTN> PointCloudTN;
-typedef pcl::PointCloud<PointTC> PointCloudTC;
+namespace stair_mapping
+{
+    typedef open3d::geometry::PointCloud PtCld;
+    typedef std::shared_ptr<open3d::geometry::PointCloud> PtCldPtr;
+    typedef open3d::t::geometry::PointCloud TsrPtCld;
+    typedef std::shared_ptr<open3d::t::geometry::PointCloud> TsrPtCldPtr;
+}

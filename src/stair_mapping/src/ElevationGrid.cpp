@@ -18,26 +18,26 @@ namespace stair_mapping
         elevation_grid_.resize(map_raws_, map_cols_);
     }
 
-    void ElevationGrid::update(const PointCloudT::Ptr &p_input_cloud)
+    void ElevationGrid::update(const PtCldPtr &p_input_cloud)
     {
         generateGrid(p_input_cloud);
         fillUnknowCell();
         smoothGrid();
     }
 
-    void ElevationGrid::generateGrid(const PointCloudT::Ptr &p_input_cloud)
+    void ElevationGrid::generateGrid(const PtCldPtr &p_input_cloud)
     {
         elevation_grid_.setConstant(default_height_);
-        for (auto &point : p_input_cloud->points)
+        for (auto &point : p_input_cloud->points_)
         {
-            int col = point.x / grid_size_ + map_cols_ / 2;
-            int row = point.y / grid_size_ + map_raws_ / 2;
+            int col = point.x() / grid_size_ + map_cols_ / 2;
+            int row = point.y() / grid_size_ + map_raws_ / 2;
             // the point outside height map range
             if (col < 0 || col >= map_cols_ || row < 0 || row >= map_raws_)
                 continue;
 
-            if (point.z > elevation_grid_(row, col))
-                elevation_grid_(row, col) = point.z;
+            if (point.z() > elevation_grid_(row, col))
+                elevation_grid_(row, col) = point.z();
         }
 
     }
@@ -51,15 +51,15 @@ namespace stair_mapping
             // scan along the x axis
             for (int j = 0; j < elevation_grid_.cols(); j++)
             {
-                PointT point;
-                point.x = (j - map_cols_/ 2) * grid_size_;
-                point.y = (i - map_raws_ / 2) * grid_size_;
-                point.z = elevation_grid_(i, j);
+                Eigen::Vector3d point;
+                point.x() = (j - map_cols_/ 2) * grid_size_;
+                point.y() = (i - map_raws_ / 2) * grid_size_;
+                point.z() = elevation_grid_(i, j);
                 // skip known cell
                 if (!isUnknown(i, j))
                 {
                     last_known_col = j;
-                    last_known_height = point.z;
+                    last_known_height = point.z();
                     continue;
                 }
                 // search next known cell
@@ -156,20 +156,20 @@ namespace stair_mapping
     }
 
 
-    void ElevationGrid::getPclFromHeightMap(PointCloudT::Ptr &p_output_cloud)
+    void ElevationGrid::getPclFromHeightMap(PtCldPtr &p_output_cloud)
     {
-        p_output_cloud->clear();
+        p_output_cloud->Clear();
         for (int i = 0; i < elevation_grid_.rows(); i++)
         {
             for (int j = 0; j < elevation_grid_.cols(); j++)
             {
-                PointT point;
-                point.x = (j - map_cols_/ 2) * grid_size_;
-                point.y = (i - map_raws_ / 2) * grid_size_;
-                point.z = elevation_grid_(i, j);
+                Eigen::Vector3d point;
+                point.x() = (j - map_cols_/ 2) * grid_size_;
+                point.y() = (i - map_raws_ / 2) * grid_size_;
+                point.z() = elevation_grid_(i, j);
                 if (isUnknown(i, j))
                     continue;
-                p_output_cloud->push_back(point);
+                p_output_cloud->points_.push_back(point);
             }
         }
     }

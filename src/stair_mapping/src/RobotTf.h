@@ -14,7 +14,7 @@ namespace stair_mapping
 
             void updateTouchState(const ros::Time& stamp, const boost::array<float, 6UL>& touch_prob);
             void updateTipPosition(const ros::Time& stamp, const boost::array<double, 18UL>& tip_pos);
-            const PointCloudTC::Ptr getTipPoints() const;
+            const PtCldPtr getTipPoints() const;
             Eigen::Matrix<double, 4, 6> getTipPosWithTouchState(Eigen::Matrix4d tf_from_base_link) const;
 
         private:
@@ -24,7 +24,7 @@ namespace stair_mapping
 
             Eigen::Matrix<float, 1, 6> touch_prob_;
 
-            PointCloudTC::Ptr p_tip_pts_wrt_body_;
+            PtCldPtr p_tip_pts_wrt_body_;
     };
 
     class ImuCalibrator
@@ -49,6 +49,7 @@ namespace stair_mapping
 
         // transform from base_link to base_world
         Eigen::Quaterniond imu_tf_calibrated_;
+        Eigen::Matrix4d transform2EigenMat(const geometry_msgs::Transform& tf);
     };
     
 } // namespace stair_mapping

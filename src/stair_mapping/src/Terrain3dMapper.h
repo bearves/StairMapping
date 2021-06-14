@@ -10,11 +10,11 @@ namespace stair_mapping
     public:
         Terrain3dMapper();
 
-        void preprocess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud);
+        void preprocess(const PtCldPtr &p_in_cloud, PtCldPtr &p_out_cloud);
 
         void matchSubmap(
-            const PointCloudT::Ptr &p_in_cloud,
-            PointCloudT::Ptr &p_out_cloud,
+            const PtCldPtr &p_in_cloud,
+            PtCldPtr &p_out_cloud,
             const Eigen::Matrix4d &t_frame_odom,
             const Eigen::Matrix<double, 4, 6> &tip_states);
 
@@ -24,15 +24,15 @@ namespace stair_mapping
         Eigen::Matrix4d getLastSubMapOptTf();
         Eigen::Matrix4d getCorrectTf();
 
-        const PointCloudT::Ptr getGlobalMapRawPoints();
-        const PointCloudT::Ptr getGlobalMapOptPoints();
-        const PointCloudT::Ptr getGroundPatchPoints();
+        const PtCldPtr getGlobalMapRawPoints();
+        const PtCldPtr getGlobalMapOptPoints();
+        const PtCldPtr getGroundPatchPoints();
 
     private:
         GlobalMap global_map_;
-        PointCloudT::Ptr global_raw_points_;
-        PointCloudT::Ptr global_opt_points_;
-        PointCloudT::Ptr ground_patch_points_;
+        PtCldPtr global_raw_points_;
+        PtCldPtr global_opt_points_;
+        PtCldPtr ground_patch_points_;
         Eigen::Matrix4d correct_tf_;
 
     };

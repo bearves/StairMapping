@@ -3,21 +3,22 @@
 namespace stair_mapping
 {
     Terrain3dMapper::Terrain3dMapper()
-        : global_opt_points_(new PointCloudT),
-          global_raw_points_(new PointCloudT),
-          ground_patch_points_(new PointCloudT),
+        : global_opt_points_(new PtCld),
+          global_raw_points_(new PtCld),
+          ground_patch_points_(new PtCld),
           correct_tf_(Eigen::Matrix4d::Identity())
     {
     }
 
-    void Terrain3dMapper::preprocess(const PointCloudT::Ptr &p_in_cloud, PointCloudT::Ptr &p_out_cloud)
+    void Terrain3dMapper::preprocess(const PtCldPtr &p_in_cloud, PtCldPtr &p_out_cloud)
     {
         // crop
-        PointCloudT::Ptr p_cloud_cr(new PointCloudT);
-        PreProcessor::crop(p_in_cloud, p_cloud_cr, Eigen::Vector3f(0, -0.5, -2), Eigen::Vector3f(3.0, 0.5, 3));
+        PtCldPtr p_cloud_cr = std::make_shared<PtCld>();
+        PreProcessor::crop(p_in_cloud, p_cloud_cr, Eigen::Vector3d(0, -0.5, -2), Eigen::Vector3d(3.0, 0.5, 3));
 
+        ROS_INFO("Cropped pcd size: %ld", p_cloud_cr->points_.size());
         // downsampling
-        PointCloudT::Ptr p_cloud_ds(new PointCloudT);
+        PtCldPtr p_cloud_ds = std::make_shared<PtCld>();
         Eigen::Vector2i sizes = PreProcessor::downSample(p_cloud_cr, p_cloud_ds, 0.03);
         ROS_INFO("After downsample size: %d -> %d", sizes[0], sizes[1]);
 
@@ -27,8 +28,8 @@ namespace stair_mapping
     // FrontEnd
     // scan-to-submap matcher
     void Terrain3dMapper::matchSubmap(
-        const PointCloudT::Ptr &p_in_cloud, 
-        PointCloudT::Ptr &p_out_cloud, 
+        const PtCldPtr &p_in_cloud, 
+        PtCldPtr &p_out_cloud, 
         const Eigen::Matrix4d& t_frame_odom,
         const Eigen::Matrix<double, 4, 6>& tip_states)
     {
@@ -37,7 +38,7 @@ namespace stair_mapping
         int submap_store_cap = 2;
 
         // reject empty cloud
-        if (p_in_cloud->empty()) return;
+        if (p_in_cloud->IsEmpty()) return;
 
         // if no submap exists
         if (global_map_.submapCount() == 0)
@@ -61,8 +62,8 @@ namespace stair_mapping
         if (last_sm == nullptr) return;
 
         // match current frame to the last submap
-        double score = 1e8;
-        double SUCCESS_SCORE = 0.1;
+        double score = -1e8;
+        double SUCCESS_SCORE = 0.6;
 
         Matrix4d t_guess = last_sm->getRelativeTfGuess(t_frame_odom);
         Matrix4d t_frame_to_last_map = t_guess;
@@ -87,7 +88,7 @@ namespace stair_mapping
         }
 
         // if match succeeds, add current frame to current submap or create new submap, otherwise drop it
-        if (score < SUCCESS_SCORE)
+        if (score > SUCCESS_SCORE)
         {
             // if a new submap is needed
             if (last_sm->hasEnoughFrame())
@@ -131,15 +132,15 @@ namespace stair_mapping
 
         correct_tf_ = global_map_.getCorrectTf();
 
-        const PointCloudT::Ptr opt_pc = global_map_.getGlobalMapOptPoints();
-        PreProcessor::downSample(opt_pc, global_opt_points_, 0.02, 1);
+        const PtCldPtr opt_pc = global_map_.getGlobalMapOptPoints();
+        PreProcessor::downSample(opt_pc, global_opt_points_, 0.02);
 
         ground_patch_points_ = global_map_.getGroundPatchPoints();
 
         if (display_raw_result)
         {
-            const PointCloudT::Ptr raw_pc = global_map_.getGlobalMapRawPoints();
-            PreProcessor::downSample(raw_pc, global_raw_points_, 0.02, 1);
+            const PtCldPtr raw_pc = global_map_.getGlobalMapRawPoints();
+            PreProcessor::downSample(raw_pc, global_raw_points_, 0.02);
         }
     }
 
@@ -158,17 +159,17 @@ namespace stair_mapping
         return correct_tf_;
     }
 
-    const PointCloudT::Ptr Terrain3dMapper::getGlobalMapRawPoints()
+    const PtCldPtr Terrain3dMapper::getGlobalMapRawPoints()
     {
         return global_raw_points_;
     }
 
-    const PointCloudT::Ptr Terrain3dMapper::getGroundPatchPoints()
+    const PtCldPtr Terrain3dMapper::getGroundPatchPoints()
     {
         return ground_patch_points_;
     }
 
-    const PointCloudT::Ptr Terrain3dMapper::getGlobalMapOptPoints()
+    const PtCldPtr Terrain3dMapper::getGlobalMapOptPoints()
     {
         return global_opt_points_;
     }

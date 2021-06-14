@@ -14,9 +14,9 @@ public:
         double grid_size,
         double default_height);
 
-    void update(const PointCloudT::Ptr &p_input_cloud);
+    void update(const PtCldPtr &p_input_cloud);
 
-    void getPclFromHeightMap(PointCloudT::Ptr &p_output_cloud);
+    void getPclFromHeightMap(PtCldPtr &p_output_cloud);
 
 private:
     double map_width_;
@@ -33,7 +33,7 @@ private:
         return elevation_grid_(row, col) < (default_height_ + 0.01);
     }
 
-    void generateGrid(const PointCloudT::Ptr &p_input_cloud);
+    void generateGrid(const PtCldPtr &p_input_cloud);
     void fillUnknowCell();
     void smoothGrid();
     void fillGap(int row, int start_col, int end_col, double height);

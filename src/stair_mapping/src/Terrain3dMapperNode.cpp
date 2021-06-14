@@ -1,10 +1,8 @@
 #include "Terrain3dMapperNode.h"
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/io/pcd_io.h>
 #include <termios.h>
 #include "PreProcessor.h"
+#include <open3d/Open3D.h>
+#include <open3d_conversions/open3d_conversions.h>
 
 namespace stair_mapping
 {
@@ -42,15 +40,15 @@ namespace stair_mapping
     void Terrain3dMapperNode::pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
     {
         using namespace Eigen;
-        PointCloudT::Ptr p_in_cloud(new PointCloudT);
-        PointCloudT::Ptr p_tr_cloud(new PointCloudT);
-        PointCloudT::Ptr p_pre_cloud(new PointCloudT);
+        PtCldPtr p_in_cloud = std::make_shared<PtCld>();
+        PtCldPtr p_tr_cloud = std::make_shared<PtCld>();
+        PtCldPtr p_pre_cloud = std::make_shared<PtCld>();
 
         sensor_msgs::PointCloud2 tsfm_out_cloud2;
         sensor_msgs::PointCloud2 pre_out_cloud2;
         sensor_msgs::PointCloud2 submap_out_cloud2;
 
-        pcl::fromROSMsg(*msg, *p_in_cloud);
+        open3d_conversions::rosToOpen3d(msg, *p_in_cloud);
 
         // transform using imu
         imu_msg_mtx_.lock();
@@ -66,11 +64,11 @@ namespace stair_mapping
         auto tip_states = robot_kin_.getTipPosWithTouchState(t_imu_baselink);
         tip_msg_mtx_.unlock();
 
-        pcl::transformPointCloud(*p_in_cloud, *p_tr_cloud, t_imu_camera);
+        *p_tr_cloud = p_in_cloud->Transform(t_imu_camera);
 
         if (display_process_details_)
         {
-            pcl::toROSMsg(*p_tr_cloud, tsfm_out_cloud2);
+            open3d_conversions::open3dToRos(*p_tr_cloud, tsfm_out_cloud2);
             tsfm_out_cloud2.header.frame_id = "base_world";
             tsfm_out_cloud2.header.stamp = msg->header.stamp;
             imu_transformed_pub_.publish(tsfm_out_cloud2);
@@ -81,14 +79,14 @@ namespace stair_mapping
 
         if (display_process_details_)
         {
-            pcl::toROSMsg(*p_pre_cloud, pre_out_cloud2);
+            open3d_conversions::open3dToRos(*p_pre_cloud, pre_out_cloud2);
             pre_out_cloud2.header.frame_id = "base_world";
             pre_out_cloud2.header.stamp = msg->header.stamp;
             preprocess_pub_.publish(pre_out_cloud2);
         }
 
         // match submaps
-        PointCloudT::Ptr p_submap_cloud(new PointCloudT);
+        PtCldPtr p_submap_cloud = std::make_shared<PtCld>();
         odom_msg_mtx_.lock();
         Matrix4d t_frame_odom = current_odom_mat_;
         odom_msg_mtx_.unlock();
@@ -96,7 +94,7 @@ namespace stair_mapping
 
         if (display_process_details_)
         {
-            pcl::toROSMsg(*p_submap_cloud, submap_out_cloud2);
+            open3d_conversions::open3dToRos(*p_submap_cloud, submap_out_cloud2);
             submap_out_cloud2.header.frame_id = "base_world";
             submap_out_cloud2.header.stamp = msg->header.stamp;
             submap_pub_.publish(submap_out_cloud2);
@@ -165,7 +163,7 @@ namespace stair_mapping
         tip_msg_mtx_.unlock();
 
         sensor_msgs::PointCloud2 pc2;
-        pcl::toROSMsg(*robot_kin_.getTipPoints(), pc2);
+        open3d_conversions::open3dToRos(*robot_kin_.getTipPoints(), pc2);
         pc2.header.frame_id = "base_link";
         pc2.header.stamp = ros::Time::now();
         tip_points_pub_.publish(pc2);
@@ -189,7 +187,7 @@ namespace stair_mapping
     {
         sensor_msgs::PointCloud2 opt_pc2;
         auto p_global_opt_pc = terrain_mapper_.getGlobalMapOptPoints();
-        pcl::toROSMsg(*p_global_opt_pc, opt_pc2);
+        open3d_conversions::open3dToRos(*p_global_opt_pc, opt_pc2);
         opt_pc2.header.frame_id = "map";
         opt_pc2.header.stamp = ros::Time::now();
         global_map_opt_pub_.publish(opt_pc2);
@@ -198,14 +196,14 @@ namespace stair_mapping
         {
             sensor_msgs::PointCloud2 raw_pc2;
             auto p_global_raw_pc = terrain_mapper_.getGlobalMapRawPoints();
-            pcl::toROSMsg(*p_global_raw_pc, raw_pc2);
+            open3d_conversions::open3dToRos(*p_global_raw_pc, raw_pc2);
             raw_pc2.header.frame_id = "map";
             raw_pc2.header.stamp = ros::Time::now();
             global_map_raw_pub_.publish(raw_pc2);
 
             sensor_msgs::PointCloud2 gnd_patch_pc2;
             auto p_gnd_patch_pc = terrain_mapper_.getGroundPatchPoints();
-            pcl::toROSMsg(*p_gnd_patch_pc, gnd_patch_pc2);
+            open3d_conversions::open3dToRos(*p_gnd_patch_pc, gnd_patch_pc2);
             gnd_patch_pc2.header.frame_id = "map";
             gnd_patch_pc2.header.stamp = ros::Time::now();
             gnd_patch_pub_.publish(gnd_patch_pc2);
