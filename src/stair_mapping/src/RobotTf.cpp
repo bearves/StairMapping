@@ -1,5 +1,6 @@
 #include "RobotTf.h"
 #include <tf2_ros/transform_listener.h>
+#include <tf2_eigen/tf2_eigen.h>
 
 namespace stair_mapping
 {
@@ -45,11 +46,11 @@ namespace stair_mapping
             Eigen::Vector3d tip_color;
             if (touch_prob_[i] > 0.9) // touch, red
             {
-                tip_color << 255, 0, 0;
+                tip_color << 1, 0, 0;
             }
             else // not touch, green
             {
-                tip_color << 0, 255, 0;
+                tip_color << 0, 1, 0;
             }
 
             p_tip_pts_wrt_body_->points_.push_back(tip_pos_wrt_body_.col(i));
@@ -151,7 +152,7 @@ namespace stair_mapping
         try
         {
             tf_camera_to_body = buffer.lookupTransform("base_link", "camera_depth_optical_frame", ros::Time(0));
-            Eigen::Matrix4d tm = transform2EigenMat(tf_camera_to_body.transform);
+            Eigen::Matrix4d tm = tf2::transformToEigen(tf_camera_to_body).matrix();
 
             imu_tf_from_camera = Eigen::Affine3d(imu_tf_calibrated_).matrix() * tm;
             is_imu_transform_ready_ = true;
@@ -162,23 +163,6 @@ namespace stair_mapping
         }
 
         return imu_tf_from_camera;
-    }
-
-    Eigen::Matrix4d ImuCalibrator::transform2EigenMat(const geometry_msgs::Transform &tf)
-    {
-        Eigen::Quaterniond q;
-        q.w() = tf.rotation.w;
-        q.x() = tf.rotation.x;
-        q.y() = tf.rotation.y;
-        q.z() = tf.rotation.z;
-
-        Eigen::Translation3d t;
-        t.x() = tf.translation.x;
-        t.y() = tf.translation.y;
-        t.z() = tf.translation.z;
-
-        Eigen::Affine3d tq(t * q);
-        return tq.matrix();
     }
 
 } // namespace stair_mapping

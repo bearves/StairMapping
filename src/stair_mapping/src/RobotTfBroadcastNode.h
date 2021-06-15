@@ -32,7 +32,6 @@ private:
 
     void imuCallback(const sensor_msgs::ImuConstPtr &msg);
     void pclDataCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
-    Eigen::Matrix4d transform2EigenMat(const geometry_msgs::Transform &tf);
 };
     
 } // namespace stair_mapping

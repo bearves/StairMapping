@@ -149,8 +149,8 @@ namespace stair_mapping
             {
                 if (i < lastn)
                     continue;
-                auto transformed_raw_pts = 
-                    submaps_[i]->getSubmapPoints()->Transform(T_m2gm_raw_[i]);
+                auto transformed_raw_pts = *submaps_[i]->getSubmapPoints();
+                transformed_raw_pts.Transform(T_m2gm_raw_[i]);
                 p_all_raw_points->operator+=(transformed_raw_pts);
             }
         }
@@ -163,8 +163,8 @@ namespace stair_mapping
             if (i < lastn)
                 continue;
             Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
-            auto transformed_opt_pts =
-                submaps_[i]->getCroppedSubmapPoints()->Transform(T_m2gm_refined);
+            auto transformed_opt_pts = *submaps_[i]->getCroppedSubmapPoints();
+            transformed_opt_pts.Transform(T_m2gm_refined);
             p_all_opt_points->operator+=(transformed_opt_pts);
         }
 
@@ -297,7 +297,7 @@ namespace stair_mapping
 
         // Compensation model:
         // c = k * weighted_dist_err
-        return -0.1 * weighted_err;
+        return -0.06 * weighted_err;
     }
 
     bool GlobalMap::runGlobalPoseOptimizer()
@@ -347,7 +347,7 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 4, 4, 1e-16;
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 800, 800, 1e-16;
             pg_.addEdge(EDGE_TYPE::ABS_ROTATION, 0, i + 1, t_edge, ifm);
         }
 

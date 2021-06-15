@@ -2,6 +2,7 @@
 
 #include <eigen3/Eigen/Dense>
 #include <tf2_ros/transform_listener.h>
+#include <tf2_eigen/tf2_eigen.h>
 #include <open3d/Open3D.h>
 #include <open3d_conversions/open3d_conversions.h>
 
@@ -92,7 +93,7 @@ namespace stair_mapping
             {
                 transform = buffer.lookupTransform("base_world", msg->header.frame_id, ros::Time(0));
             }
-            auto tm = transform2EigenMat(transform.transform);
+            auto tm = tf2::transformToEigen(transform.transform).matrix();
 
             open3d::geometry::PointCloud pc;
             open3d_conversions::rosToOpen3d(msg, pc);
@@ -106,23 +107,6 @@ namespace stair_mapping
         transformed_pcl2.header.frame_id = "base_world";
         transformed_pcl2.header.stamp = msg->header.stamp;
         pcl_pub_.publish(transformed_pcl2);
-    }
-
-    Eigen::Matrix4d RobotTfBroadcastNode::transform2EigenMat(const geometry_msgs::Transform &tf)
-    {
-        Eigen::Quaterniond q;
-        q.w() = tf.rotation.w;
-        q.x() = tf.rotation.x;
-        q.y() = tf.rotation.y;
-        q.z() = tf.rotation.z;
-
-        Eigen::Translation3d t;
-        t.x() = tf.translation.x;
-        t.y() = tf.translation.y;
-        t.z() = tf.translation.z;
-
-        Eigen::Affine3d tq(t * q);
-        return tq.matrix();
     }
 
 } // namespace stair_mapping

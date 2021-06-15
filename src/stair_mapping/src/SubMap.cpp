@@ -55,7 +55,8 @@ namespace stair_mapping
         // add all frame points to submap
         for(int i = 0; i < current_count_; i++)
         {
-            auto transformed_frame = frames_[i].Transform(T_f2sm_[i]);
+            auto transformed_frame = frames_[i];
+            transformed_frame.Transform(T_f2sm_[i]);
             p_all_points->operator+=( transformed_frame );
         }
         *p_submap_points_ = *p_all_points;
@@ -125,7 +126,8 @@ namespace stair_mapping
 
         // firstly transform the input cloud with init_guess to 
         // make the two clouds overlap as much as possible
-        *p_input_cloud_init = input_cloud->Transform(init_guess);
+        *p_input_cloud_init = *input_cloud;
+        p_input_cloud_init->Transform(init_guess);
 
         // since the stairs are very similar structures
         // crop on Z and X axis to avoid the stair-jumping mismatch

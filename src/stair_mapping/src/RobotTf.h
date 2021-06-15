@@ -49,7 +49,6 @@ namespace stair_mapping
 
         // transform from base_link to base_world
         Eigen::Quaterniond imu_tf_calibrated_;
-        Eigen::Matrix4d transform2EigenMat(const geometry_msgs::Transform& tf);
     };
     
 } // namespace stair_mapping

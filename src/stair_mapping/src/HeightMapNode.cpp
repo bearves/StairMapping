@@ -32,7 +32,8 @@ namespace stair_mapping
         PtCldPtr local_map = std::make_shared<PtCld>();
         PtCldPtr height_map = std::make_shared<PtCld>();
         mtx_.lock();
-        *local_map = global_map_->Transform(pose.inverse().matrix());
+        *local_map = *global_map_;
+        local_map->Transform(pose.inverse().matrix());
         mtx_.unlock();
         // generate height map
         eg_.update(local_map);
