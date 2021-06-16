@@ -162,6 +162,7 @@ namespace stair_mapping
 
         // compute normal for each clouds
         p_input_cloud_cr->EstimateNormals(KDTreeSearchParamKNN(10));
+        // recompute normals can reduce pt2pl icp time
         p_target_cloud_cr->EstimateNormals(KDTreeSearchParamKNN(10));
 
         // ICP with normal
@@ -181,6 +182,7 @@ namespace stair_mapping
         //transform_info = computeInfomation(icp_result_cloud, p_target_tn);
 
         timer.Stop();
+        ROS_INFO("ICP result: fitness: %lf rsme: %lf", result.fitness_, result.inlier_rmse_);
         ROS_INFO("Applied ICP iteration(s) in %lf ms", timer.GetDuration());
 
         if (result.fitness_ > 0.6)
