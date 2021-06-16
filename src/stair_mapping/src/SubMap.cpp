@@ -165,19 +165,40 @@ namespace stair_mapping
         // recompute normals can reduce pt2pl icp time
         p_target_cloud_cr->EstimateNormals(KDTreeSearchParamKNN(10));
 
-        // ICP with normal
-        auto result = open3d::pipelines::registration::RegistrationICP(
-            *p_input_cloud_cr, *p_target_cloud_cr,
-            0.08, Eigen::Matrix4d::Identity(),
-            open3d::pipelines::registration::TransformationEstimationPointToPlane(),
-            open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
+        timer.Stop();
+        ROS_INFO("Normal estimation in %lf ms", timer.GetDuration());
+
+        timer.Start();
+
+        // Tensor ICP 
+        auto source = open3d::t::geometry::PointCloud::FromLegacyPointCloud(*p_input_cloud_cr);
+        auto target = open3d::t::geometry::PointCloud::FromLegacyPointCloud(*p_target_cloud_cr);
+        open3d::core::Tensor initTsr = open3d::core::Tensor::Eye(
+            4, open3d::core::Dtype::Float32, (open3d::core::Device)("CUDA:0"));
+
+        auto result = open3d::t::pipelines::registration::RegistrationICP(
+            source.To(open3d::core::Device("CUDA:0")), 
+            target.To(open3d::core::Device("CUDA:0")), 
+            0.08, initTsr, 
+            open3d::t::pipelines::registration::TransformationEstimationPointToPlane(),
+            open3d::t::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
         );
+        auto tsfm_icp = open3d::core::eigen_converter::TensorToEigenMatrixXd(result.transformation_);
+
+        // ICP Legacy with normal
+        // auto result = open3d::pipelines::registration::RegistrationICP(
+        //     *p_input_cloud_cr, *p_target_cloud_cr,
+        //     0.08, Eigen::Matrix4d::Identity(),
+        //     open3d::pipelines::registration::TransformationEstimationPointToPlane(),
+        //     open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
+        // );
+        // auto tsfm_icp = result.transformation_;
+
         transform_info = open3d::pipelines::registration::GetInformationMatrixFromPointClouds(
             *p_input_cloud_cr,
             *p_target_cloud_cr,
             0.08,
-            result.transformation_
-        );
+            tsfm_icp);
 
         //transform_info = computeInfomation(icp_result_cloud, p_target_tn);
 
@@ -187,7 +208,7 @@ namespace stair_mapping
 
         if (result.fitness_ > 0.6)
         {
-            transform_result = result.transformation_ * init_guess;
+            transform_result = tsfm_icp * init_guess;
         }
         else
         {
