@@ -1,5 +1,6 @@
 #include "RobotTf.h"
 #include <tf2_ros/transform_listener.h>
+#include <tf2_eigen/tf2_eigen.h>
 #include <pcl_ros/transforms.h>
 
 namespace stair_mapping
@@ -123,9 +124,9 @@ namespace stair_mapping
         //y = 0;
         if (is_first_imu_msg_)
         {
-            auto euler = q_body.toRotationMatrix().eulerAngles(2, 1, 0);
+            auto euler = quatToEulerAngle(q_body);
             yaw_start_ = euler[0]; // init yaw angle
-            ROS_INFO("Start yaw angle: %lf", yaw_start_);
+            ROS_INFO("Start angle: %lf %lf %lf", yaw_start_, euler[1], euler[2]);
             is_first_imu_msg_ = false;
         }
         // remove the yaw start rotation
@@ -168,6 +169,25 @@ namespace stair_mapping
         }
 
         return imu_tf_from_camera;
+    }
+
+    Eigen::Vector3d ImuCalibrator::quatToEulerAngle(Eigen::Quaterniond data)
+    {
+        double ysqr = data.y() * data.y();
+        double t0 = -2.0 * (ysqr + data.z() * data.z()) + 1.0;
+        double t1 = +2.0 * (data.x() * data.y() + data.w() * data.z());
+        double t2 = -2.0 * (data.x() * data.z() - data.w() * data.y());
+        double t3 = +2.0 * (data.y() * data.z() + data.w() * data.x());
+        double t4 = -2.0 * (data.x() * data.x() + ysqr) + 1.0;
+
+        t2 = t2 > 1.0 ? 1.0 : t2;
+        t2 = t2 < -1.0 ? -1.0 : t2;
+
+        auto pitch = asin(t2);
+        auto roll = atan2(t3, t4);
+        auto yaw = atan2(t1, t0);
+
+        return {yaw, pitch, roll};
     }
 
 } // namespace stair_mapping

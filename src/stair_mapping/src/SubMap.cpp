@@ -112,7 +112,7 @@ namespace stair_mapping
             std::cout << "Info matrix eig:\n" << info_match_result.eigenvalues().real() << std::endl;
 #endif
 
-            //t_match_result = init_guess;
+            t_match_result = init_guess;
             return score; // best score
         }
     }

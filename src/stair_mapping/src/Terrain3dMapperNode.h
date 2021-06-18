@@ -13,8 +13,8 @@
 #include <eigen3/Eigen/Dense>
 #include <thread>
 #include <mutex>
-#include "mini_bridge/GaitPhase.h"
-#include "mini_bridge/RobotTipState.h"
+#include "mini_bridge/GaitPhaseV2.h"
+#include "mini_bridge/RobotTipStateV2.h"
 #include "Terrain3dMapper.h"
 #include "RobotTf.h"
 
@@ -53,7 +53,7 @@ namespace stair_mapping
         Eigen::Matrix4d current_odom_mat_;
         Eigen::Matrix4d current_imu_from_camera_mat_;
         Eigen::Matrix4d current_imu_from_base_mat_;
-        bool is_imu_transform_ok_;
+        bool is_imu_transform_ok_{false};
 
         Terrain3dMapper terrain_mapper_;
         RobotKinetics robot_kin_;
@@ -62,8 +62,8 @@ namespace stair_mapping
         void pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
         void odomMsgCallback(const nav_msgs::OdometryConstPtr &msg);
         void imuMsgCallback(const sensor_msgs::ImuConstPtr &msg);
-        void tipStateCallback(const mini_bridge::RobotTipStateConstPtr &msg);
-        void gaitPhaseCallback(const mini_bridge::GaitPhaseConstPtr &msg);
+        void tipStateCallback(const mini_bridge::RobotTipStateV2ConstPtr &msg);
+        void gaitPhaseCallback(const mini_bridge::GaitPhaseV2ConstPtr &msg);
 
         Eigen::Matrix4d getPoseMatrix(const nav_msgs::Odometry &odom);
 

@@ -49,6 +49,10 @@ namespace stair_mapping
 
         // transform from base_link to base_world
         Eigen::Quaterniond imu_tf_calibrated_;
+
+        // Custom quaternion to RPY implementation. The implementation from EIGEN lib
+        // has a wrong value range for common use in the direction-heading scenario
+        Eigen::Vector3d quatToEulerAngle(Eigen::Quaterniond data);
     };
     
 } // namespace stair_mapping

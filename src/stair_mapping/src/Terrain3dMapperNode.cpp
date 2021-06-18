@@ -8,7 +8,8 @@
 
 namespace stair_mapping
 {
-    Terrain3dMapperNode::Terrain3dMapperNode(ros::NodeHandle& node)
+    Terrain3dMapperNode::Terrain3dMapperNode(ros::NodeHandle& node) :
+        is_imu_transform_ok_(false)
     {
         using namespace Eigen;
 
@@ -115,6 +116,7 @@ namespace stair_mapping
 
         auto imu_tf_from_camera = imu_calibrator_.getCalibratedImuTfFromCamera();
         auto imu_tf_from_baselink = imu_calibrator_.getCalibratedImuTfFromBaseLink();
+
         imu_msg_mtx_.lock();
         current_imu_from_camera_mat_ = imu_tf_from_camera;
         current_imu_from_base_mat_ = imu_tf_from_baselink;
@@ -150,7 +152,7 @@ namespace stair_mapping
         return pose.matrix();
     }
 
-    void Terrain3dMapperNode::gaitPhaseCallback(const mini_bridge::GaitPhaseConstPtr &msg)
+    void Terrain3dMapperNode::gaitPhaseCallback(const mini_bridge::GaitPhaseV2ConstPtr &msg)
     {
         using namespace Eigen;
         tip_msg_mtx_.lock();
@@ -158,7 +160,7 @@ namespace stair_mapping
         tip_msg_mtx_.unlock();
     }
 
-    void Terrain3dMapperNode::tipStateCallback(const mini_bridge::RobotTipStateConstPtr &msg)
+    void Terrain3dMapperNode::tipStateCallback(const mini_bridge::RobotTipStateV2ConstPtr &msg)
     {
         tip_msg_mtx_.lock();
         robot_kin_.updateTipPosition(msg->header.stamp, msg->tip_pos);
