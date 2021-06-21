@@ -3,7 +3,7 @@ project(stair_mapping)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_BUILD_TYPE RELEASE)
-set(VERBOSE_INFO OFF)
+set(VERBOSE_INFO ON)
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 

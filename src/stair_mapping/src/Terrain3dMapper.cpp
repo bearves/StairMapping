@@ -133,7 +133,7 @@ namespace stair_mapping
         correct_tf_ = global_map_.getCorrectTf();
 
         const PointCloudT::Ptr opt_pc = global_map_.getGlobalMapOptPoints();
-        PreProcessor::downSample(opt_pc, global_opt_points_, 0.02, 1);
+        PreProcessor::downSample(opt_pc, global_opt_points_, 0.02, 2);
 
         ground_patch_points_ = global_map_.getGroundPatchPoints();
 

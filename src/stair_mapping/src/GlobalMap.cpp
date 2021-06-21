@@ -356,9 +356,9 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight translations
-            ifm.diagonal() << 100, 100, 100, 1e-16, 1e-16, 1e-16;
+            ifm.diagonal() << 3600, 3600, 3600, 1e-16, 1e-16, 1e-16;
             Pose3d t_edge(T_m2m_odom_[i + 1]);
-            pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
+             pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
         }
         // edge of orientation imu constraints
         //if (submap_cnt > 0)
@@ -369,7 +369,7 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 4, 4, 1e-16;
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 100, 100, 100;
             pg_.addEdge(EDGE_TYPE::ABS_ROTATION, 0, i + 1, t_edge, ifm);
         }
 
@@ -391,13 +391,14 @@ namespace stair_mapping
             T_m2gm_opt_[i] = v.toMat4d();
             double x_frame = T_m2gm_opt_[i](0, 3);
             double y_frame = T_m2gm_opt_[i](1, 3);
+
             // compensate Z drift using the distance from the origin
-            //T_m2gm_compensate_[i](2, 3) = -0.100 * sqrt(x_frame*x_frame + y_frame*y_frame);
-            // T_m2gm_compensate_[i](2, 3) = compensation_coe_ * sqrt(x_frame * x_frame + y_frame * y_frame);
-            T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
+            T_m2gm_compensate_[i](2, 3) = compensation_coe_ * sqrt(x_frame * x_frame + y_frame * y_frame);
+            // T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
+
             // compensate X drift due to the foot shape by coe * distance_traversed
-            // T_m2gm_compensate_[i](0, 3) = 0.02 * (x_frame);
-            T_m2gm_compensate_[i](0, 3) = 0 * (x_frame);
+            T_m2gm_compensate_[i](0, 3) = 0.05 * (x_frame);
+            //T_m2gm_compensate_[i](0, 3) = 0 * (x_frame);
         }
 
         last_submap_cnt_ = submap_cnt;

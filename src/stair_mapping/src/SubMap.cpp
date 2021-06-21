@@ -110,9 +110,10 @@ namespace stair_mapping
             std::cout << "Init guess:\n" << init_guess << std::endl;
             std::cout << "Registration result:\n" << t_match_result << std::endl;
             std::cout << "Info matrix eig:\n" << info_match_result.eigenvalues().real() << std::endl;
+            std::cout << "Tranlate matrix eig:\n" << info_match_result.topLeftCorner(3,3).eigenvalues().real() << std::endl;
 #endif
 
-            t_match_result = init_guess;
+            // t_match_result = init_guess;
             return score; // best score
         }
     }
@@ -203,8 +204,9 @@ namespace stair_mapping
         Eigen::Affine3d err = af_res * af_ini.inverse();
         double lin_err = err.translation().norm();
         double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
-        if (lin_err > 0.1 || 
-            ang_err > 0.2)
+        ROS_ERROR("Match error from guess: %lf %lf", lin_err, ang_err);
+        if (lin_err > 0.03 || 
+            ang_err > 0.03)
         {
             ROS_ERROR("Large match error detected: %lf %lf", lin_err, ang_err);
             transform_result = init_guess;
