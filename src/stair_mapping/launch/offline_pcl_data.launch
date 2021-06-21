@@ -7,8 +7,8 @@
   <param name="robot_description" textfile="$(find stair_mapping)/urdf/hex_mini_model.urdf" />
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
-  <param name="imu_pose_calibrate_r" value="-0.01"/>
-  <param name="imu_pose_calibrate_p" value="-0.04"/>
+  <param name="imu_pose_calibrate_r" value="-0.02"/>
+  <param name="imu_pose_calibrate_p" value="-0.01"/>
   <param name="imu_pose_calibrate_y" value="0.0"/>
   <param name="need_ground_truth" value="true"/>
   <param name="display_process_details" value="true"/>

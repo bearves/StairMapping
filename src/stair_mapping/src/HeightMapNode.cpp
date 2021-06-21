@@ -61,15 +61,15 @@ namespace stair_mapping
         double stair_height = 0.131;
         double stair_length = 0.25;
         double stair_width = 1.2;
-        double stairx0 = 0.71;
+        double stairx0 = 3.25;
         double offsetz = -0.36;
-        int stair_cnt = 9;
+        int stair_cnt = 1;
 
         ground_truth_->Clear();
 
 
         double resolution = 0.01;
-        for (int i = -150; i < 300; i++)
+        for (int i = -400; i < 300; i++)
         {
             for (int j = -60; j < 61; j++)
             {
