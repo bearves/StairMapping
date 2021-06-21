@@ -13,6 +13,8 @@
 #include <eigen3/Eigen/Dense>
 #include <thread>
 #include <mutex>
+#include "mini_bridge/GaitPhase.h"
+#include "mini_bridge/RobotTipState.h"
 #include "mini_bridge/GaitPhaseV2.h"
 #include "mini_bridge/RobotTipStateV2.h"
 #include "Terrain3dMapper.h"
@@ -42,6 +44,7 @@ namespace stair_mapping
         ros::Publisher tip_points_pub_;
 
         bool display_process_details_{false};
+        int message_version_{2};
 
         tf2_ros::TransformBroadcaster br_;
 
@@ -62,8 +65,10 @@ namespace stair_mapping
         void pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
         void odomMsgCallback(const nav_msgs::OdometryConstPtr &msg);
         void imuMsgCallback(const sensor_msgs::ImuConstPtr &msg);
-        void tipStateCallback(const mini_bridge::RobotTipStateV2ConstPtr &msg);
-        void gaitPhaseCallback(const mini_bridge::GaitPhaseV2ConstPtr &msg);
+        void tipStateCallback(const mini_bridge::RobotTipStateConstPtr &msg);
+        void gaitPhaseCallback(const mini_bridge::GaitPhaseConstPtr &msg);
+        void tipStateV2Callback(const mini_bridge::RobotTipStateV2ConstPtr &msg);
+        void gaitPhaseV2Callback(const mini_bridge::GaitPhaseV2ConstPtr &msg);
 
         Eigen::Matrix4d getPoseMatrix(const nav_msgs::Odometry &odom);
 
