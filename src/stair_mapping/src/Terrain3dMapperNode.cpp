@@ -14,6 +14,7 @@ namespace stair_mapping
         using namespace Eigen;
 
         node.param("display_process_details", display_process_details_, false);
+        node.param("robot_message_version", message_version_, 2);
 
         imu_calibrator_.setParam(node);
         current_imu_from_camera_mat_ = Matrix4d::Identity();
@@ -34,10 +35,19 @@ namespace stair_mapping
         tip_points_pub_ = node.advertise<sensor_msgs::PointCloud2>("tip_points", 1);
 
         odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &Terrain3dMapperNode::odomMsgCallback, this);
-        tip_state_sub_ = node.subscribe("/qz_state_publisher/robot_tip_state", 1, &Terrain3dMapperNode::tipStateCallback, this);
-        gait_phase_sub_ = node.subscribe("/qz_state_publisher/robot_gait_phase", 1, &Terrain3dMapperNode::gaitPhaseCallback, this);
         imu_sub_ = node.subscribe("/qz_state_publisher/robot_imu", 1, &Terrain3dMapperNode::imuMsgCallback, this);
         pcl_sub_ = node.subscribe("/camera/depth/color/points", 1, &Terrain3dMapperNode::pclMsgCallback, this);
+
+        if (message_version_ == 1)
+        {
+            tip_state_sub_ = node.subscribe("/qz_state_publisher/robot_tip_state", 1, &Terrain3dMapperNode::tipStateCallback, this);
+            gait_phase_sub_ = node.subscribe("/qz_state_publisher/robot_gait_phase", 1, &Terrain3dMapperNode::gaitPhaseCallback, this);
+        }
+        else if (message_version_ == 2)
+        {
+            tip_state_sub_ = node.subscribe("/qz_state_publisher/robot_tip_state", 1, &Terrain3dMapperNode::tipStateV2Callback, this);
+            gait_phase_sub_ = node.subscribe("/qz_state_publisher/robot_gait_phase", 1, &Terrain3dMapperNode::gaitPhaseV2Callback, this);
+        }
     }
 
     void Terrain3dMapperNode::pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
@@ -152,7 +162,7 @@ namespace stair_mapping
         return pose.matrix();
     }
 
-    void Terrain3dMapperNode::gaitPhaseCallback(const mini_bridge::GaitPhaseV2ConstPtr &msg)
+    void Terrain3dMapperNode::gaitPhaseV2Callback(const mini_bridge::GaitPhaseV2ConstPtr &msg)
     {
         using namespace Eigen;
         tip_msg_mtx_.lock();
@@ -160,7 +170,28 @@ namespace stair_mapping
         tip_msg_mtx_.unlock();
     }
 
-    void Terrain3dMapperNode::tipStateCallback(const mini_bridge::RobotTipStateV2ConstPtr &msg)
+    void Terrain3dMapperNode::tipStateV2Callback(const mini_bridge::RobotTipStateV2ConstPtr &msg)
+    {
+        tip_msg_mtx_.lock();
+        robot_kin_.updateTipPosition(msg->header.stamp, msg->tip_pos);
+        tip_msg_mtx_.unlock();
+
+        sensor_msgs::PointCloud2 pc2;
+        pcl::toROSMsg(*robot_kin_.getTipPoints(), pc2);
+        pc2.header.frame_id = "base_link";
+        pc2.header.stamp = ros::Time::now();
+        tip_points_pub_.publish(pc2);
+    }
+
+    void Terrain3dMapperNode::gaitPhaseCallback(const mini_bridge::GaitPhaseConstPtr &msg)
+    {
+        using namespace Eigen;
+        tip_msg_mtx_.lock();
+        robot_kin_.updateTouchState(msg->header.stamp, msg->touch_possibility);
+        tip_msg_mtx_.unlock();
+    }
+
+    void Terrain3dMapperNode::tipStateCallback(const mini_bridge::RobotTipStateConstPtr &msg)
     {
         tip_msg_mtx_.lock();
         robot_kin_.updateTipPosition(msg->header.stamp, msg->tip_pos);

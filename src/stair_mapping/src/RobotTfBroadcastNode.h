@@ -5,8 +5,6 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include <mini_bridge/RobotTipStateV2.h>
-#include <mini_bridge/GaitPhaseV2.h>
 
 namespace stair_mapping
 {
