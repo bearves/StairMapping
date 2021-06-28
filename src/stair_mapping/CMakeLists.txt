@@ -58,11 +58,6 @@ else()
   remove_definitions(-DVERBOSE_INFO)
 endif()
 
-add_executable(img_process_node src/img_process_node.cpp src/ImageProcessor.cpp)
-add_executable(clip_pcl_data_node src/clip_pcl_data_node.cpp)
-add_executable(robot_tf_broadcast_node src/robot_tf_broadcast_node.cpp src/RobotTfBroadcastNode.cpp)
-add_executable(test_pose_graph src/test_pose_graph.cpp src/PoseGraph.cpp)
-
 set(TERRAIN_3D_MAP_SOURCE src/terrain_3d_map_node.cpp src/Terrain3dMapperNode.cpp src/Terrain3dMapper.cpp src/SubMap.cpp)
 set(TERRAIN_3D_MAP_SOURCE ${TERRAIN_3D_MAP_SOURCE} src/GlobalMap.cpp src/PreProcessor.cpp src/PoseGraph.cpp src/RobotTf.cpp)
 add_executable(terrain_3d_map_node ${TERRAIN_3D_MAP_SOURCE})
@@ -71,12 +66,6 @@ set(HEIGHT_MAP_SOURCE src/height_map_node.cpp src/ElevationGrid.cpp src/HeightMa
 add_executable(height_map_node ${HEIGHT_MAP_SOURCE})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(img_process_node
-  ${OpenCV_LIBRARIES}
-  ${Eigen3_LIBRARIES}
-  ${catkin_LIBRARIES}
-)
-
 target_link_libraries(terrain_3d_map_node PRIVATE Open3D::Open3D
   ${OpenCV_LIBRARIES}
   ${Eigen3_LIBRARIES}
@@ -90,22 +79,3 @@ target_link_libraries(height_map_node PRIVATE Open3D::Open3D
   ${Eigen3_LIBRARIES}
 )
 
-target_link_libraries(test_pose_graph
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${Eigen3_LIBRARIES}
-  ${CERES_LIBRARIES}
-  ${Open3D_LIBRARIES}
-)
-
-target_link_libraries(clip_pcl_data_node PRIVATE Open3D::Open3D
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${Eigen3_LIBRARIES}
-)
-
-target_link_libraries(robot_tf_broadcast_node PRIVATE Open3D::Open3D
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${Eigen3_LIBRARIES}
-)
