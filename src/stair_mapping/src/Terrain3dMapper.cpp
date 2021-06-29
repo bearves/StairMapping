@@ -12,9 +12,9 @@ namespace stair_mapping
 
     void Terrain3dMapper::preprocess(const PtCldPtr &p_in_cloud, PtCldPtr &p_out_cloud)
     {
-        // crop
+        // crop in the camera local frame
         PtCldPtr p_cloud_cr = std::make_shared<PtCld>();
-        PreProcessor::crop(p_in_cloud, p_cloud_cr, Eigen::Vector3d(0, -0.5, -2), Eigen::Vector3d(3.0, 0.5, 3));
+        PreProcessor::crop(p_in_cloud, p_cloud_cr, Eigen::Vector3d(-0.5, -2, 0.1), Eigen::Vector3d(0.5, 2, 3));
         ROS_INFO("After crop size: %d -> %d", p_in_cloud->points_.size(), p_cloud_cr->points_.size());
 
         // ROS_INFO("Cropped pcd size: %ld", p_cloud_cr->points_.size());
@@ -29,10 +29,11 @@ namespace stair_mapping
     // FrontEnd
     // scan-to-submap matcher
     void Terrain3dMapper::matchSubmap(
-        const PtCldPtr &p_in_cloud, 
-        PtCldPtr &p_out_cloud, 
-        const Eigen::Matrix4d& t_frame_odom,
-        const Eigen::Matrix<double, 4, 6>& tip_states)
+        const PtCldPtr &p_in_cloud,
+        PtCldPtr &p_out_cloud,
+        const Eigen::Matrix4d &t_frame_odom,
+        const Eigen::Matrix4d &t_cam_wrt_base,
+        const Eigen::Matrix<double, 4, 6> &tip_states)
     {
         using namespace Eigen;
 
@@ -50,10 +51,10 @@ namespace stair_mapping
             p_sm->init();
             global_map_.addNewSubmap(
                 p_sm, 
-                Matrix4d::Identity(), // m2m laser match
-                Matrix4d::Identity(), // m2m odom
-                t_frame_odom,          // imu
-                100*InfoMatrix::Identity() // information of the submap
+                t_frame_odom, // initial m2m laser match (Vision Odom), ^wT_{b_0}'
+                t_frame_odom, // initial m2m odom (Leg Odom), ^wT_{b_0}
+                t_frame_odom, // imu global constraint, ^wT_{b_0}
+                100*InfoMatrix::Identity() // information of the submap for VO
             );
         }
 
@@ -71,16 +72,21 @@ namespace stair_mapping
         InfoMatrix info_mat;
 
         // reject frames when robot is not moving at all
-        Vector3d translation_guess = Affine3d(t_guess).translation();
-        if (!last_sm->isEmpty() && translation_guess.norm() < 0.01)
+        // aka. too small translation and too small rotation
+        Affine3d aff_guess(t_guess);
+        Vector3d translation_guess = aff_guess.translation();
+        Matrix3d rotation_guess = aff_guess.rotation();
+        if (!last_sm->isEmpty() &&
+            translation_guess.norm() < 0.01 &&
+            AngleAxisd(rotation_guess).angle() < 0.01)
         {
-            ROS_WARN("Frame too close: %f", translation_guess.norm());
+            ROS_WARN("Frame too close t:%lf r:%lf", translation_guess.norm(), AngleAxisd(rotation_guess).angle());
             return;
         }
 
         try
         {
-            score = last_sm->match(p_in_cloud, t_guess, t_frame_to_last_map, info_mat);
+            score = last_sm->match(p_in_cloud, t_guess, t_cam_wrt_base, t_frame_to_last_map, info_mat);
         }
         catch (std::runtime_error &ex)
         {
@@ -99,13 +105,13 @@ namespace stair_mapping
 
                 SubMap::Ptr p_sm(new SubMap(submap_store_cap));
                 p_sm->init();
-                p_sm->addFrame(*p_in_cloud, Matrix4d::Identity(), t_frame_odom, tip_states);
+                p_sm->addFrame(*p_in_cloud, Matrix4d::Identity(), t_frame_odom, t_cam_wrt_base, tip_states);
                 // match to last submap if exists, record transform Ti
                 global_map_.addNewSubmap(
                     p_sm, 
-                    t_frame_to_last_map, // m2m scan match
-                    t_guess,             // m2m odom
-                    t_frame_odom,        // global imu
+                    t_frame_to_last_map, // m2m scan match, VO
+                    t_guess,             // m2m odom, LO
+                    t_frame_odom,        // global imu, imu global cons, ^wT_b_i
                     info_mat             // infomation matrix of the laser match
                 );
                 current_sm = p_sm;
@@ -113,7 +119,7 @@ namespace stair_mapping
             else
             {
                 // add current pcl to current submap
-                last_sm->addFrame(*p_in_cloud, t_frame_to_last_map, t_frame_odom, tip_states);
+                last_sm->addFrame(*p_in_cloud, t_frame_to_last_map, t_frame_odom, t_cam_wrt_base, tip_states);
                 current_sm = last_sm;
             }
         }

@@ -20,15 +20,18 @@ namespace stair_mapping
         T_f2sm_.clear();
         frames_.clear();
         T_odom_.clear();
+        T_cam_wrt_base_.clear();
     }
 
     void SubMap::addFrame(PtCld frame, 
-        Eigen::Matrix4d t_f2sm, 
-        Eigen::Matrix4d t_frame_odom,
+        const Eigen::Matrix4d& t_f2sm, 
+        const Eigen::Matrix4d& t_frame_odom,
+        const Eigen::Matrix4d& t_cam_wrt_base,
         const Eigen::Matrix<double, 4, 6>& tip_states)
     {
         frames_.push_back(frame);
-        T_f2sm_.push_back(t_f2sm);
+        T_f2sm_.push_back(t_f2sm); // ^{b_{i-1}}T_{b_i}
+        T_cam_wrt_base_.push_back(t_cam_wrt_base);
         T_odom_.push_back(t_frame_odom);
         tip_states_.push_back(tip_states);
         
@@ -55,8 +58,13 @@ namespace stair_mapping
         // add all frame points to submap
         for(int i = 0; i < current_count_; i++)
         {
+            // Transform existed frame points to the submap's origin wrt camera local coordinate,
+            // In this way, the icp matching can be conducted between current submap points 
+            // and the next key frame.
             auto transformed_frame = frames_[i];
-            transformed_frame.Transform(T_f2sm_[i]);
+            Matrix4d T_base_wrt_cam = Affine3d(T_cam_wrt_base_[i]).inverse().matrix();
+            Matrix4d T_f2sm_wrt_cam = T_base_wrt_cam * T_f2sm_[i] * T_cam_wrt_base_[i];
+            transformed_frame.Transform(T_f2sm_wrt_cam);
             p_all_points->operator+=( transformed_frame );
         }
         *p_submap_points_ = *p_all_points;
@@ -65,13 +73,14 @@ namespace stair_mapping
         PreProcessor::crop(
             p_submap_points_,
             p_cropped_submap_points_,
-            Vector3d(0, -0.5, -2),
-            Vector3d(1.5, 0.5, 0.4));
+            Vector3d(-0.5, -2, 0),
+            Vector3d(0.5, 2, 1.5));
     }
 
     double SubMap::match(
         const PtCldPtr& frame, 
         const Eigen::Matrix4d& init_guess, 
+        const Eigen::Matrix4d& t_cam_wrt_base, 
         Eigen::Matrix4d& t_match_result,
         InfoMatrix& info_match_result)
     {
@@ -96,6 +105,7 @@ namespace stair_mapping
                 frame, 
                 p_submap_points_, 
                 init_guess, 
+                t_cam_wrt_base,
                 t_match_result,
                 info_match_result);
 
@@ -116,10 +126,16 @@ namespace stair_mapping
         const PtCldPtr& input_cloud, 
         const PtCldPtr& target_cloud, 
         const Eigen::Matrix4d& init_guess, 
+        const Eigen::Matrix4d& t_cam_wrt_base, 
         Eigen::Matrix4d& transform_result,
         InfoMatrix& transform_info)
     {
+        using namespace Eigen;
         using namespace open3d::geometry;
+
+        auto t_base_wrt_cam = Affine3d(t_cam_wrt_base).inverse().matrix();
+        // the transform guess in the camera's local frame
+        auto init_guess_cam = t_base_wrt_cam * init_guess * t_cam_wrt_base;
 
         PtCldPtr p_input_cloud_init = std::make_shared<PtCld>();
         PtCldPtr p_input_cloud_cr = std::make_shared<PtCld>();
@@ -128,7 +144,7 @@ namespace stair_mapping
         // firstly transform the input cloud with init_guess to 
         // make the two clouds overlap as much as possible
         *p_input_cloud_init = *input_cloud;
-        p_input_cloud_init->Transform(init_guess);
+        p_input_cloud_init->Transform(init_guess_cam);
 
         // since the stairs are very similar structures
         // crop on Z and X axis to avoid the stair-jumping mismatch
@@ -141,15 +157,17 @@ namespace stair_mapping
         double loose = 0.1;
         double z_crop_max = std::min(max_input.z(), max_target.z()) + loose;
         double z_crop_min = std::max(min_input.z(), min_target.z()) - loose;
+        double y_crop_max = std::min(max_input.y(), max_target.y()) + loose;
+        double y_crop_min = std::max(min_input.y(), min_target.y()) - loose;
         double x_crop_max = std::min(max_input.x(), max_target.x()) + loose;
         double x_crop_min = std::max(min_input.x(), min_target.x()) - loose;
 
         PreProcessor::crop(p_input_cloud_init, p_input_cloud_cr, 
-            Eigen::Vector3d(x_crop_min, -0.4, z_crop_min), 
-            Eigen::Vector3d(x_crop_max, 0.4, z_crop_max));
+            Eigen::Vector3d(x_crop_min, y_crop_min, z_crop_min), 
+            Eigen::Vector3d(x_crop_max, y_crop_max, z_crop_max));
         PreProcessor::crop(target_cloud, p_target_cloud_cr, 
-            Eigen::Vector3d(x_crop_min, -0.4, z_crop_min), 
-            Eigen::Vector3d(x_crop_max, 0.4, z_crop_max));
+            Eigen::Vector3d(x_crop_min, y_crop_min, z_crop_min), 
+            Eigen::Vector3d(x_crop_max, y_crop_max, z_crop_max));
 
         if (p_input_cloud_cr->IsEmpty() || p_target_cloud_cr->IsEmpty())
         {
@@ -172,36 +190,39 @@ namespace stair_mapping
         timer.Start();
 
         // Tensor ICP 
-        auto source = open3d::t::geometry::PointCloud::FromLegacyPointCloud(*p_input_cloud_cr);
-        auto target = open3d::t::geometry::PointCloud::FromLegacyPointCloud(*p_target_cloud_cr);
-        open3d::core::Tensor initTsr = open3d::core::Tensor::Eye(
-            4, open3d::core::Dtype::Float32, (open3d::core::Device)("CUDA:0"));
+        // auto source = open3d::t::geometry::PointCloud::FromLegacyPointCloud(*p_input_cloud_cr);
+        // auto target = open3d::t::geometry::PointCloud::FromLegacyPointCloud(*p_target_cloud_cr);
+        // open3d::core::Tensor initTsr = open3d::core::Tensor::Eye(
+        //     4, open3d::core::Dtype::Float32, (open3d::core::Device)("CUDA:0"));
 
-        auto result = open3d::t::pipelines::registration::RegistrationICP(
-            source.To(open3d::core::Device("CUDA:0")), 
-            target.To(open3d::core::Device("CUDA:0")), 
-            0.08, initTsr, 
-            open3d::t::pipelines::registration::TransformationEstimationPointToPlane(),
-            open3d::t::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
-        );
-        auto tsfm_icp = open3d::core::eigen_converter::TensorToEigenMatrixXd(result.transformation_);
+        // auto result = open3d::t::pipelines::registration::RegistrationICP(
+        //     source.To(open3d::core::Device("CUDA:0")), 
+        //     target.To(open3d::core::Device("CUDA:0")), 
+        //     0.08, initTsr, 
+        //     open3d::t::pipelines::registration::TransformationEstimationPointToPlane(),
+        //     open3d::t::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
+        // );
+        // auto tsfm_icp = open3d::core::eigen_converter::TensorToEigenMatrixXd(result.transformation_);
 
         // ICP Legacy with normal
-        // auto result = open3d::pipelines::registration::RegistrationICP(
-        //     *p_input_cloud_cr, *p_target_cloud_cr,
-        //     0.08, Eigen::Matrix4d::Identity(),
-        //     open3d::pipelines::registration::TransformationEstimationPointToPlane(),
-        //     open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
-        // );
-        // auto tsfm_icp = result.transformation_;
+        auto result = open3d::pipelines::registration::RegistrationICP(
+            *p_input_cloud_cr, *p_target_cloud_cr,
+            0.08, Eigen::Matrix4d::Identity(),
+            open3d::pipelines::registration::TransformationEstimationPointToPlane(),
+            open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
+        );
+        auto tsfm_icp = result.transformation_;
 
         transform_info = open3d::pipelines::registration::GetInformationMatrixFromPointClouds(
             *p_input_cloud_cr,
             *p_target_cloud_cr,
             0.08,
             tsfm_icp);
-
         //transform_info = computeInfomation(icp_result_cloud, p_target_tn);
+        stair_mapping::InfoMatrix tf_info;
+        tf_info.topLeftCorner(3,3) = t_cam_wrt_base.topLeftCorner(3,3);
+        tf_info.bottomRightCorner(3,3) = t_cam_wrt_base.topLeftCorner(3,3);
+        transform_info = tf_info * transform_info * tf_info.transpose(); // info in the base coordinate
 
         timer.Stop();
         ROS_INFO("ICP result: fitness: %lf rsme: %lf", result.fitness_, result.inlier_rmse_);
@@ -209,7 +230,7 @@ namespace stair_mapping
 
         if (result.fitness_ > 0.6)
         {
-            transform_result = tsfm_icp * init_guess;
+            transform_result = t_cam_wrt_base * tsfm_icp * init_guess_cam * t_base_wrt_cam;
         }
         else
         {

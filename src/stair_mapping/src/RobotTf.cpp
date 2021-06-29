@@ -138,31 +138,31 @@ namespace stair_mapping
         return imu_tsfm;
     }
 
-    Eigen::Matrix4d ImuCalibrator::getCalibratedImuTfFromBaseLink()
+    // ^wT_b_i = ^wT_I_i * ^IT_b
+    Eigen::Matrix4d ImuCalibrator::getTfOfBaselinkWrtWorld()
     {
         return Eigen::Affine3d(imu_tf_calibrated_).matrix();
     }
 
-    Eigen::Matrix4d ImuCalibrator::getCalibratedImuTfFromCamera()
+    // ^bT_c
+    Eigen::Matrix4d ImuCalibrator::getTfOfCameraWrtBaseLink()
     {
         static tf2_ros::Buffer buffer;
         static tf2_ros::TransformListener lsner(buffer);
         geometry_msgs::TransformStamped tf_camera_to_body;
-        Eigen::Matrix4d imu_tf_from_camera = Eigen::Matrix4d::Identity();
+        Eigen::Matrix4d tm = Eigen::Matrix4d::Identity();
         try
         {
             tf_camera_to_body = buffer.lookupTransform("base_link", "camera_depth_optical_frame", ros::Time(0));
-            Eigen::Matrix4d tm = tf2::transformToEigen(tf_camera_to_body).matrix();
+            tm = tf2::transformToEigen(tf_camera_to_body).matrix();
 
-            imu_tf_from_camera = Eigen::Affine3d(imu_tf_calibrated_).matrix() * tm;
             is_imu_transform_ready_ = true;
         }
         catch (tf2::TransformException &ex)
         {
             ROS_WARN("%s", ex.what());
         }
-
-        return imu_tf_from_camera;
+        return tm;
     }
 
     Eigen::Vector3d ImuCalibrator::quatToEulerAngle(Eigen::Quaterniond data)

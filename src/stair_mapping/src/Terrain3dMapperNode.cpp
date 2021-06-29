@@ -15,8 +15,8 @@ namespace stair_mapping
         node.param("robot_message_version", message_version_, 2);
 
         imu_calibrator_.setParam(node);
-        current_imu_from_camera_mat_ = Matrix4d::Identity();
-        current_imu_from_base_mat_ = Matrix4d::Identity();
+        current_tf_of_baselink_wrt_world_ = Matrix4d::Identity();
+        current_tf_of_camera_wrt_baselink_ = Matrix4d::Identity();
         current_odom_mat_ = Matrix4d::Identity();
 
         if (display_process_details_)
@@ -52,10 +52,8 @@ namespace stair_mapping
     {
         using namespace Eigen;
         PtCldPtr p_in_cloud = std::make_shared<PtCld>();
-        PtCldPtr p_tr_cloud = std::make_shared<PtCld>();
         PtCldPtr p_pre_cloud = std::make_shared<PtCld>();
 
-        sensor_msgs::PointCloud2 tsfm_out_cloud2;
         sensor_msgs::PointCloud2 pre_out_cloud2;
         sensor_msgs::PointCloud2 submap_out_cloud2;
 
@@ -63,35 +61,27 @@ namespace stair_mapping
 
         // transform using imu
         imu_msg_mtx_.lock();
-        Matrix4d t_imu_camera = current_imu_from_camera_mat_;
-        Matrix4d t_imu_baselink = current_imu_from_base_mat_;
+        Matrix4d T_camera_wrt_base = current_tf_of_camera_wrt_baselink_; // ^bT_c
+        Matrix4d T_base_wrt_world = current_tf_of_baselink_wrt_world_; // ^wT_b (rotation part)
         bool is_transform_ok = is_imu_transform_ok_;
         imu_msg_mtx_.unlock();
 
         // when imu transform is not ready, do nothing to point cloud data
         if (!is_transform_ok) return;
 
+        // get robot tip states
         tip_msg_mtx_.lock();
-        auto tip_states = robot_kin_.getTipPosWithTouchState(t_imu_baselink);
+        // only rotation is used
+        auto tip_states = robot_kin_.getTipPosWithTouchState(T_base_wrt_world);
         tip_msg_mtx_.unlock();
 
-        *p_tr_cloud = p_in_cloud->Transform(t_imu_camera);
-
-        if (display_process_details_)
-        {
-            open3d_conversions::open3dToRos(*p_tr_cloud, tsfm_out_cloud2);
-            tsfm_out_cloud2.header.frame_id = "base_world";
-            tsfm_out_cloud2.header.stamp = msg->header.stamp;
-            imu_transformed_pub_.publish(tsfm_out_cloud2);
-        }
-
         // preprocess
-        terrain_mapper_.preprocess(p_tr_cloud, p_pre_cloud);
+        terrain_mapper_.preprocess(p_in_cloud, p_pre_cloud);
 
         if (display_process_details_)
         {
             open3d_conversions::open3dToRos(*p_pre_cloud, pre_out_cloud2);
-            pre_out_cloud2.header.frame_id = "base_world";
+            pre_out_cloud2.header.frame_id = "camera_depth_optical_frame";
             pre_out_cloud2.header.stamp = msg->header.stamp;
             preprocess_pub_.publish(pre_out_cloud2);
         }
@@ -101,12 +91,14 @@ namespace stair_mapping
         odom_msg_mtx_.lock();
         Matrix4d t_frame_odom = current_odom_mat_;
         odom_msg_mtx_.unlock();
-        terrain_mapper_.matchSubmap(p_pre_cloud, p_submap_cloud, t_frame_odom, tip_states);
+        // use imu's rotation with the robot odom's translation
+        t_frame_odom.topLeftCorner(3,3) = T_base_wrt_world.topLeftCorner(3,3); // ^wT_b_i
+        terrain_mapper_.matchSubmap(p_pre_cloud, p_submap_cloud, t_frame_odom, T_camera_wrt_base, tip_states);
 
         if (display_process_details_)
         {
             open3d_conversions::open3dToRos(*p_submap_cloud, submap_out_cloud2);
-            submap_out_cloud2.header.frame_id = "base_world";
+            submap_out_cloud2.header.frame_id = "camera_depth_optical_frame";
             submap_out_cloud2.header.stamp = msg->header.stamp;
             submap_pub_.publish(submap_out_cloud2);
         }
@@ -122,12 +114,12 @@ namespace stair_mapping
         imu_tsfm.child_frame_id = "base_link";
         br_.sendTransform(imu_tsfm);
 
-        auto imu_tf_from_camera = imu_calibrator_.getCalibratedImuTfFromCamera();
-        auto imu_tf_from_baselink = imu_calibrator_.getCalibratedImuTfFromBaseLink();
+        auto T_base_wrt_world = imu_calibrator_.getTfOfBaselinkWrtWorld();
+        auto T_camera_wrt_base = imu_calibrator_.getTfOfCameraWrtBaseLink();
 
         imu_msg_mtx_.lock();
-        current_imu_from_camera_mat_ = imu_tf_from_camera;
-        current_imu_from_base_mat_ = imu_tf_from_baselink;
+        current_tf_of_baselink_wrt_world_ = T_base_wrt_world;
+        current_tf_of_camera_wrt_baselink_ = T_camera_wrt_base;
         is_imu_transform_ok_ = imu_calibrator_.isImuTransformReady();
         imu_msg_mtx_.unlock();
     }

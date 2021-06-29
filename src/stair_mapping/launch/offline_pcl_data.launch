@@ -1,7 +1,7 @@
 <launch>
   <param name="use_sim_time" value="true"/>
 
-  <arg name="bag_file_name" value="0508/output2.bag"/>
+  <arg name="bag_file_name" value="0508/output.bag"/>
   <node pkg="rosbag" type="play" name="rosbag_play" output="screen" args="--clock /home/learning/Projects/Data/$(arg bag_file_name)" />
 
   <param name="robot_description" textfile="$(find stair_mapping)/urdf/hex_mini_model.urdf" />
@@ -12,7 +12,7 @@
   <param name="imu_pose_calibrate_y" value="0.0"/>
   <param name="need_ground_truth" value="true"/>
   <param name="display_process_details" value="true"/>
-  <param name="robot_message_version" value="2"/>
+  <param name="robot_message_version" value="1"/>
   <node name="terrain_3d_map_node" pkg="stair_mapping" type="terrain_3d_map_node" output="screen" />
   <node name="height_map_node" pkg="stair_mapping" type="height_map_node" output="screen" />
   <!--

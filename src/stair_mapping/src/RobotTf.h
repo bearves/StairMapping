@@ -35,8 +35,8 @@ namespace stair_mapping
         geometry_msgs::TransformStamped updateCalibratedImuTf(
             const geometry_msgs::Quaternion& imu_reading);
 
-        Eigen::Matrix4d getCalibratedImuTfFromCamera();
-        Eigen::Matrix4d getCalibratedImuTfFromBaseLink();
+        Eigen::Matrix4d getTfOfBaselinkWrtWorld();
+        Eigen::Matrix4d getTfOfCameraWrtBaseLink();
 
         inline bool isImuTransformReady() const { return is_imu_transform_ready_; }
 

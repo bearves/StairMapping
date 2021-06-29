@@ -19,8 +19,9 @@ public:
 
     void addFrame(
         PtCld frame,
-        Eigen::Matrix4d t_f2sm, 
-        Eigen::Matrix4d t_frame_odom,
+        const Eigen::Matrix4d& t_f2sm, 
+        const Eigen::Matrix4d& t_frame_odom,
+        const Eigen::Matrix4d& t_cam_wrt_base,
         const Eigen::Matrix<double, 4, 6>& tip_states);
 
     bool hasEnoughFrame();
@@ -29,6 +30,7 @@ public:
     double match( 
         const PtCldPtr& frame, 
         const Eigen::Matrix4d& init_guess, 
+        const Eigen::Matrix4d& t_cam_wrt_base, 
         Eigen::Matrix4d& t_match_result,
         InfoMatrix& info_match_result);
 
@@ -46,6 +48,7 @@ private:
     int max_stored_frame_count_;
     int current_count_;
     std::vector<Eigen::Matrix4d> T_f2sm_;
+    std::vector<Eigen::Matrix4d> T_cam_wrt_base_;
     std::vector<Eigen::Matrix4d> T_odom_;
     std::vector<Eigen::Matrix<double, 4, 6> > tip_states_;
     std::vector<PtCld> frames_;
@@ -58,6 +61,7 @@ private:
         const PtCldPtr& input_cloud, 
         const PtCldPtr& target_cloud, 
         const Eigen::Matrix4d& init_guess, 
+        const Eigen::Matrix4d& t_cam_wrt_base, 
         Eigen::Matrix4d& transform_result,
         InfoMatrix& transform_info);
     
