@@ -150,7 +150,9 @@ namespace stair_mapping
                 if (i < lastn)
                     continue;
                 auto transformed_raw_pts = *submaps_[i]->getSubmapPoints();
-                transformed_raw_pts.Transform(T_m2gm_raw_[i]);
+                auto t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
+                // ^wp = ^wT_{b_i}' * ^bT_c * ^cp
+                transformed_raw_pts.Transform(T_m2gm_raw_[i] * t_cam_wrt_base);
                 p_all_raw_points->operator+=(transformed_raw_pts);
             }
         }
@@ -164,7 +166,9 @@ namespace stair_mapping
                 continue;
             Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
             auto transformed_opt_pts = *submaps_[i]->getCroppedSubmapPoints();
-            transformed_opt_pts.Transform(T_m2gm_refined);
+            auto t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
+            // ^wp = ^wT_{b_i}' * ^bT_c * ^cp
+            transformed_opt_pts.Transform(T_m2gm_refined * t_cam_wrt_base);
             p_all_opt_points->operator+=(transformed_opt_pts);
         }
 

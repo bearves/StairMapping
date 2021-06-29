@@ -117,7 +117,7 @@ namespace stair_mapping
             std::cout << "Tranlate matrix eig:\n" << info_match_result.topLeftCorner(3,3).eigenvalues().real() << std::endl;
 #endif
 
-            // t_match_result = init_guess;
+            t_match_result = init_guess;
             return score; // best score
         }
     }
@@ -328,6 +328,11 @@ namespace stair_mapping
     const PtCldPtr SubMap::getSubmapPoints()
     {
         return this->p_submap_points_;
+    }
+
+    Eigen::Matrix4d SubMap::getSubmapTfCamWrtBase()
+    {
+        return this->T_cam_wrt_base_.at(0);
     }
 
     const PtCldPtr SubMap::getCroppedSubmapPoints()

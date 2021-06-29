@@ -15,7 +15,7 @@ namespace stair_mapping
         // crop in the camera local frame
         PtCldPtr p_cloud_cr = std::make_shared<PtCld>();
         PreProcessor::crop(p_in_cloud, p_cloud_cr, Eigen::Vector3d(-0.5, -2, 0.1), Eigen::Vector3d(0.5, 2, 3));
-        ROS_INFO("After crop size: %d -> %d", p_in_cloud->points_.size(), p_cloud_cr->points_.size());
+        ROS_INFO("After crop size: %ld -> %ld", p_in_cloud->points_.size(), p_cloud_cr->points_.size());
 
         // ROS_INFO("Cropped pcd size: %ld", p_cloud_cr->points_.size());
         // downsampling

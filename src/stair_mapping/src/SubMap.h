@@ -36,6 +36,7 @@ public:
 
     const PtCldPtr getSubmapPoints();
     const PtCldPtr getCroppedSubmapPoints();
+    Eigen::Matrix4d getSubmapTfCamWrtBase();
 
     Eigen::Matrix<double, 4, 6> getLastTipPointsWithTransform(const Eigen::Matrix4d& tf);
 

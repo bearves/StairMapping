@@ -109,10 +109,10 @@ namespace stair_mapping
         using namespace Eigen;
 
         auto imu_tsfm = imu_calibrator_.updateCalibratedImuTf(msg->orientation);
-        imu_tsfm.header.stamp = msg->header.stamp;
-        imu_tsfm.header.frame_id = "base_world";
-        imu_tsfm.child_frame_id = "base_link";
-        br_.sendTransform(imu_tsfm);
+        //imu_tsfm.header.stamp = msg->header.stamp;
+        //imu_tsfm.header.frame_id = "base_world";
+        //imu_tsfm.child_frame_id = "base_link";
+        //br_.sendTransform(imu_tsfm);
 
         auto T_base_wrt_world = imu_calibrator_.getTfOfBaselinkWrtWorld();
         auto T_camera_wrt_base = imu_calibrator_.getTfOfCameraWrtBaseLink();
@@ -130,6 +130,10 @@ namespace stair_mapping
         odom_msg_mtx_.lock();
         current_odom_mat_ = pose_mat;
         odom_msg_mtx_.unlock();
+        imu_msg_mtx_.lock();
+        auto t_base_wrt_world = current_tf_of_baselink_wrt_world_;
+        imu_msg_mtx_.unlock();
+        pose_mat.topLeftCorner(3,3) = t_base_wrt_world.topLeftCorner(3,3);
 
         publishCorrectedTf(msg->header.stamp, pose_mat);
     }
@@ -242,12 +246,13 @@ namespace stair_mapping
 
         //transformStamped.header.seq = msg->header.seq;
         auto corrector = terrain_mapper_.getCorrectTf();
+        corrector = Eigen::Matrix4d::Identity();
         Eigen::Affine3d tf_corrected(corrector * original_robot_tf);
         corrected_tf = tf2::eigenToTransform(tf_corrected);
 
         corrected_tf.header.stamp = stamp;
         corrected_tf.header.frame_id = "map";
-        corrected_tf.child_frame_id = "base_world";
+        corrected_tf.child_frame_id = "base_link";
 
         corrected_pose.header.stamp = stamp;
         corrected_pose.header.frame_id = "map";

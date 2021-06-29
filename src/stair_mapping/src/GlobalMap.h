@@ -38,18 +38,18 @@ public:
 private:
     std::vector<SubMap::Ptr> submaps_;
     // The transform between submaps from scan match result
-    std::vector<Eigen::Matrix4d> T_m2m_laser_;
+    std::vector<Eigen::Matrix4d> T_m2m_laser_; // ^{b_{i-1}}T_{b_i}'
     std::vector<InfoMatrix> info_m2m_laser_;
     // The transform between submaps from robot odom
-    std::vector<Eigen::Matrix4d> T_m2m_odom_;
+    std::vector<Eigen::Matrix4d> T_m2m_odom_;  // ^{b_{i-1}}T_{b_i}
     // The transform(orientation) of the submap in 
     //  the global cs according to the robot imu
-    std::vector<Eigen::Matrix4d> T_m2gm_imu_;
+    std::vector<Eigen::Matrix4d> T_m2gm_imu_;  // ^wT_{b_i}
 
     // The accumuated transform of the submap in the global cs
-    std::vector<Eigen::Matrix4d> T_m2gm_raw_;
+    std::vector<Eigen::Matrix4d> T_m2gm_raw_;  // ^wT_{b_i}'
     // The optimized transform of the submap in the global cs
-    std::vector<Eigen::Matrix4d> T_m2gm_opt_;
+    std::vector<Eigen::Matrix4d> T_m2gm_opt_;  // ^wT_{b_i}_opt
     // The transform compensate of the submap in the global cs
     std::vector<Eigen::Matrix4d> T_m2gm_compensate_;
 
