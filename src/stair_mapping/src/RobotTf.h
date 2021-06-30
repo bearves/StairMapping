@@ -49,6 +49,7 @@ namespace stair_mapping
 
         // transform from base_link to base_world
         Eigen::Quaterniond imu_tf_calibrated_;
+        Eigen::Matrix4d tf_cam_wrt_base_;
 
         // Custom quaternion to RPY implementation. The implementation from EIGEN lib
         // has a wrong value range for common use in the direction-heading scenario

@@ -117,7 +117,7 @@ namespace stair_mapping
             std::cout << "Tranlate matrix eig:\n" << info_match_result.topLeftCorner(3,3).eigenvalues().real() << std::endl;
 #endif
 
-            t_match_result = init_guess;
+            //t_match_result = init_guess;
             return score; // best score
         }
     }
@@ -213,20 +213,21 @@ namespace stair_mapping
         );
         auto tsfm_icp = result.transformation_;
 
-        transform_info = open3d::pipelines::registration::GetInformationMatrixFromPointClouds(
-            *p_input_cloud_cr,
-            *p_target_cloud_cr,
-            0.08,
-            tsfm_icp);
-        //transform_info = computeInfomation(icp_result_cloud, p_target_tn);
-        stair_mapping::InfoMatrix tf_info;
-        tf_info.topLeftCorner(3,3) = t_cam_wrt_base.topLeftCorner(3,3);
-        tf_info.bottomRightCorner(3,3) = t_cam_wrt_base.topLeftCorner(3,3);
-        transform_info = tf_info * transform_info * tf_info.transpose(); // info in the base coordinate
+        // info mat computation: firstly transform to base coordinate
+        p_input_cloud_cr->Transform(t_cam_wrt_base);
+        p_target_cloud_cr->Transform(t_cam_wrt_base);
+        transform_info = computeInfomation(p_input_cloud_cr, p_target_cloud_cr);
 
         timer.Stop();
         ROS_INFO("ICP result: fitness: %lf rsme: %lf", result.fitness_, result.inlier_rmse_);
         ROS_INFO("Applied ICP iteration(s) in %lf ms", timer.GetDuration());
+
+        if (transform_info.hasNaN())
+        {
+            ROS_ERROR("INVALID INFO MAT");
+            std::cout << "Info matrix 2:\n"
+                      << transform_info << std::endl;
+        }
 
         if (result.fitness_ > 0.6)
         {
@@ -245,7 +246,7 @@ namespace stair_mapping
         Eigen::Affine3d err = af_res * af_ini.inverse();
         double lin_err = err.translation().norm();
         double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
-        ROS_ERROR("Match error from guess: %lf %lf", lin_err, ang_err);
+        ROS_INFO("Match error from guess: %lf %lf", lin_err, ang_err);
         if (lin_err > 0.03 || 
             ang_err > 0.03)
         {
@@ -303,9 +304,9 @@ namespace stair_mapping
         Affine3d tm_last(odom_last);
 
         // get the transform of the odoms between last frame and current frame
-        Matrix4d T_o2o = current_odom * tm_last.inverse().matrix() ;
+        Matrix4d T_o2o = tm_last.inverse().matrix() * current_odom;
         // get the transform from submap's origin to this frame
-        return T_o2o * T_f2sm_last;
+        return T_f2sm_last * T_o2o;
     }
 
     Eigen::Matrix<double, 4, 6> SubMap::getLastTipPointsWithTransform(const Eigen::Matrix4d& tf)

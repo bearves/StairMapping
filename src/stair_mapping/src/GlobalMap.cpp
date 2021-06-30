@@ -351,7 +351,7 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 800, 800, 800;
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 1600, 1600, 1600;
             pg_.addEdge(EDGE_TYPE::ABS_ROTATION, 0, i + 1, t_edge, ifm);
         }
 
@@ -375,12 +375,12 @@ namespace stair_mapping
             double y_frame = T_m2gm_opt_[i](1, 3);
 
             // compensate Z drift using the distance from the origin
-            // T_m2gm_compensate_[i](2, 3) = compensation_coe_ * sqrt(x_frame * x_frame + y_frame * y_frame);
-            T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
+            T_m2gm_compensate_[i](2, 3) = compensation_coe_ * sqrt(x_frame * x_frame + y_frame * y_frame);
+            // T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
 
             // compensate X drift due to the foot shape by coe * distance_traversed
-            // T_m2gm_compensate_[i](0, 3) = 0.03 * (x_frame);
-            T_m2gm_compensate_[i](0, 3) = 0 * (x_frame);
+            T_m2gm_compensate_[i](0, 3) = 0.03 * (x_frame);
+            // T_m2gm_compensate_[i](0, 3) = 0 * (x_frame);
         }
 
         last_submap_cnt_ = submap_cnt;

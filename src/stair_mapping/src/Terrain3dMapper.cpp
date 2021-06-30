@@ -69,9 +69,9 @@ namespace stair_mapping
 
         Matrix4d t_guess = last_sm->getRelativeTfGuess(t_frame_odom);
         Matrix4d t_frame_to_last_map = t_guess;
-        InfoMatrix info_mat;
+        InfoMatrix info_mat = InfoMatrix::Identity();
 
-        // reject frames when robot is not moving at all
+        // Reject frames when robot is not moving at all
         // aka. too small translation and too small rotation
         Affine3d aff_guess(t_guess);
         Vector3d translation_guess = aff_guess.translation();

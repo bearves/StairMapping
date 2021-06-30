@@ -82,6 +82,7 @@ namespace stair_mapping
         is_first_imu_msg_ = true;
         is_imu_transform_ready_ = false;
         imu_calibrate_.setZero();
+        tf_cam_wrt_base_ = Eigen::Matrix4d::Identity();
     }
 
     void ImuCalibrator::setParam(ros::NodeHandle &node)
@@ -149,6 +150,13 @@ namespace stair_mapping
     {
         static tf2_ros::Buffer buffer;
         static tf2_ros::TransformListener lsner(buffer);
+
+        // if ready, directly use the tf_cam_wrt_base_,
+        // no need to lookup the tf tree to save time
+        if (is_imu_transform_ready_)
+            return tf_cam_wrt_base_;
+
+        // if not ready, lookup the transform published in the tf tree
         geometry_msgs::TransformStamped tf_camera_to_body;
         Eigen::Matrix4d tm = Eigen::Matrix4d::Identity();
         try
@@ -157,12 +165,13 @@ namespace stair_mapping
             tm = tf2::transformToEigen(tf_camera_to_body).matrix();
 
             is_imu_transform_ready_ = true;
+            tf_cam_wrt_base_ = tm;
         }
         catch (tf2::TransformException &ex)
         {
             ROS_WARN("%s", ex.what());
         }
-        return tm;
+        return tf_cam_wrt_base_;
     }
 
     Eigen::Vector3d ImuCalibrator::quatToEulerAngle(Eigen::Quaterniond data)
