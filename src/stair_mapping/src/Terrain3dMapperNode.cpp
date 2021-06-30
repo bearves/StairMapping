@@ -72,7 +72,7 @@ namespace stair_mapping
         // get robot tip states
         tip_msg_mtx_.lock();
         // only rotation is used
-        auto tip_states = robot_kin_.getTipPosWithTouchState(T_base_wrt_world);
+        auto tip_states = robot_kin_.getTipPosWithTouchState(Matrix4d::Identity());
         tip_msg_mtx_.unlock();
 
         // preprocess

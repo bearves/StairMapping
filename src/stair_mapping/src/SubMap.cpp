@@ -229,7 +229,7 @@ namespace stair_mapping
                       << transform_info << std::endl;
         }
 
-        if (result.fitness_ > 0.6)
+        if (result.fitness_ > 0.4)
         {
             transform_result = t_cam_wrt_base * tsfm_icp * init_guess_cam * t_base_wrt_cam;
         }
