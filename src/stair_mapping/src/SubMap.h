@@ -44,6 +44,8 @@ public:
         const Eigen::Matrix4d& current_odom);
 
     typedef std::shared_ptr<SubMap> Ptr;
+    
+    static bool PRINT_VERBOSE_INFO;
 
 private:
     int max_stored_frame_count_;

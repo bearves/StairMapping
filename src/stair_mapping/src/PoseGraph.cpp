@@ -3,6 +3,8 @@
 
 namespace stair_mapping
 {
+    bool PoseGraph::PRINT_VERBOSE_INFO = false;
+
     PoseGraph::PoseGraph()
     {
         vertex_list_.clear();

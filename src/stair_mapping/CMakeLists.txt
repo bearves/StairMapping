@@ -4,7 +4,6 @@ project(stair_mapping)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_BUILD_TYPE RELEASE)
 set(Open3D_ROOT /opt/open3d_install)
-set(VERBOSE_INFO ON)
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
@@ -52,11 +51,6 @@ link_directories(
 )
 
 add_definitions(${EIGEN_DEFINITIONS})
-if (${VERBOSE_INFO})
-  add_definitions(-DVERBOSE_INFO)
-else()
-  remove_definitions(-DVERBOSE_INFO)
-endif()
 
 set(TERRAIN_3D_MAP_SOURCE src/terrain_3d_map_node.cpp src/Terrain3dMapperNode.cpp src/Terrain3dMapper.cpp src/SubMap.cpp)
 set(TERRAIN_3D_MAP_SOURCE ${TERRAIN_3D_MAP_SOURCE} src/GlobalMap.cpp src/PreProcessor.cpp src/PoseGraph.cpp src/RobotTf.cpp)

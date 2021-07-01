@@ -5,6 +5,7 @@
 
 namespace stair_mapping
 {
+    bool SubMap::PRINT_VERBOSE_INFO = false;
 
     SubMap::SubMap(int max_stored_pcl_count):
         max_stored_frame_count_(max_stored_pcl_count),
@@ -109,13 +110,18 @@ namespace stair_mapping
                 t_match_result,
                 info_match_result);
 
-#if VERBOSE_INFO
-            std::cout << "Score:" << score << std::endl;
-            std::cout << "Init guess:\n" << init_guess << std::endl;
-            std::cout << "Registration result:\n" << t_match_result << std::endl;
-            std::cout << "Info matrix eig:\n" << info_match_result.eigenvalues().real() << std::endl;
-            std::cout << "Tranlate matrix eig:\n" << info_match_result.topLeftCorner(3,3).eigenvalues().real() << std::endl;
-#endif
+            if (SubMap::PRINT_VERBOSE_INFO)
+            {
+                std::cout << "Score:" << score << std::endl;
+                std::cout << "Init guess:\n"
+                          << init_guess << std::endl;
+                std::cout << "Registration result:\n"
+                          << t_match_result << std::endl;
+                std::cout << "Info matrix eig:\n"
+                          << info_match_result.eigenvalues().real() << std::endl;
+                std::cout << "Tranlate matrix eig:\n"
+                          << info_match_result.topLeftCorner(3, 3).eigenvalues().real() << std::endl;
+            }
 
             //t_match_result = init_guess;
             return score; // best score

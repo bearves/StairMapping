@@ -253,17 +253,6 @@ namespace stair_mapping
                     distance[i] = dz;
                 }
                 *ground_patch += *ground_under_foot;
-
-                //std::cout << "-----------------------------" << '\n';
-                //std::cout << "Tip points: " << last_tip_points.col(i).transpose() << "\n";
-                //for(int j = 0; j < center_list[i].size(); j++)
-                //{
-                //    std::cout << "Hit boxes: (" <<
-                //        center_list[i][j].x << "," <<
-                //        center_list[i][j].y << "," <<
-                //        center_list[i][j].z << ")" << "\n";
-                //}
-                //std::cout << "-----------------------------" << '\n';
             }
         }
     }
@@ -276,7 +265,7 @@ namespace stair_mapping
         using namespace Eigen;
 
         int last_id = submap_count - 1;
-        Matrix4d T_m2gm_last = T_m2gm_compensate_[last_id] * T_m2gm_opt_[last_id];
+        //Matrix4d T_m2gm_last = T_m2gm_compensate_[last_id] * T_m2gm_opt_[last_id];
 
         // calculate compensation to reduce the dist
         // firstly we calculate the weighted average distance error as
@@ -286,14 +275,15 @@ namespace stair_mapping
         // where x0 = body_center + vision_distance
         int valid_cnt = 0;
         double err_sum = 0;
-        double x0 = Affine3d(T_m2gm_last).translation().x() + 1.5;
+        //double x0 = Affine3d(T_m2gm_last).translation().x() + 1.5;
 
         for (int i = 0; i < 6; i++)
         {
-            if (fabs(distance[i]) > 1) // reject distances too large
+            if (fabs(distance[i]) > 0.1) // reject distances too large
                 continue;
             Vector3d foothold = last_tip_points.col(i).topRows(3);
-            err_sum += (x0 - foothold.x()) * distance[i];
+            //err_sum += (x0 - foothold.x()) * distance[i];
+            err_sum += distance[i];
             valid_cnt++;
         }
 
@@ -380,6 +370,7 @@ namespace stair_mapping
 
             // compensate X drift due to the foot shape by coe * distance_traversed
             T_m2gm_compensate_[i](0, 3) = 0.03 * (x_frame);
+            T_m2gm_compensate_[i](1, 3) = 0.03 * (y_frame);
             // T_m2gm_compensate_[i](0, 3) = 0 * (x_frame);
         }
 

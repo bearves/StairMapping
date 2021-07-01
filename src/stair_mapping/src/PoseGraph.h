@@ -56,6 +56,8 @@ public:
 
     const std::vector<Vertex3d>* const getVertices();
 
+    static bool PRINT_VERBOSE_INFO;
+
 private:
     std::vector<Vertex3d> vertex_list_;
     std::vector<Edge3d> edge_list_;

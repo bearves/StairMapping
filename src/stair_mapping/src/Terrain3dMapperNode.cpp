@@ -14,6 +14,9 @@ namespace stair_mapping
         node.param("display_process_details", display_process_details_, false);
         node.param("robot_message_version", message_version_, 2);
 
+        SubMap::PRINT_VERBOSE_INFO = display_process_details_;
+        PoseGraph::PRINT_VERBOSE_INFO = display_process_details_;
+
         imu_calibrator_.setParam(node);
         current_tf_of_baselink_wrt_world_ = Matrix4d::Identity();
         current_tf_of_camera_wrt_baselink_ = Matrix4d::Identity();
