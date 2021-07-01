@@ -27,8 +27,8 @@ namespace stair_mapping
         auto ori = msg->pose.orientation;
         Translation3d t(pos.x, pos.y, pos.z);
         Quaterniond q(ori.w, ori.x, ori.y, ori.z);
-        Affine3d pose = t * q;
-        // transform global 3d map points to the body cs
+        Affine3d pose = t * q.Identity(); // aligned to ground
+        // transform global 3d map points to the body cs (aligned to ground for hole filling)
         PtCldPtr local_map = std::make_shared<PtCld>();
         PtCldPtr height_map = std::make_shared<PtCld>();
         mtx_.lock();

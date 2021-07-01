@@ -118,6 +118,11 @@ namespace stair_mapping
         current_tf_of_camera_wrt_baselink_ = T_camera_wrt_base;
         is_imu_transform_ok_ = imu_calibrator_.isImuTransformReady();
         imu_msg_mtx_.unlock();
+
+        imu_tsfm.header.stamp = msg->header.stamp;
+        imu_tsfm.header.frame_id = "base_link";
+        imu_tsfm.child_frame_id = "base_world"; 
+        br_.sendTransform(imu_tsfm);
     }
 
     void Terrain3dMapperNode::odomMsgCallback(const nav_msgs::OdometryConstPtr &msg)

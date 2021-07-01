@@ -140,8 +140,10 @@ namespace stair_mapping
         correct_tf_ = global_map_.getCorrectTf();
 
         const PtCldPtr opt_pc = global_map_.getGlobalMapOptPoints();
-        PreProcessor::downSample(opt_pc, global_opt_points_, 0.02);
-
+        PtCldPtr opt_pc_ds = std::make_shared<PtCld>();
+        PreProcessor::downSample(opt_pc, opt_pc_ds, 0.02);
+        std::tie(global_opt_points_, std::ignore) = opt_pc_ds->RemoveRadiusOutliers(5, 0.05);
+        
         ground_patch_points_ = global_map_.getGroundPatchPoints();
 
         if (display_raw_result)

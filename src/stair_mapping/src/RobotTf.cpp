@@ -100,9 +100,6 @@ namespace stair_mapping
 
         geometry_msgs::TransformStamped imu_tsfm;
 
-        imu_tsfm.transform.translation.x = 0;
-        imu_tsfm.transform.translation.y = 0;
-        imu_tsfm.transform.translation.z = 0;
         Quaterniond q_imu, q_body, q_corrected;
         q_imu.w() = imu_reading.w;
         q_imu.x() = imu_reading.x;
@@ -129,10 +126,13 @@ namespace stair_mapping
         AngleAxisd rot_z0(AngleAxisd(-yaw_start_, Vector3d::UnitZ()));
         q_corrected = rot_z0 * q_body;
 
-        imu_tsfm.transform.rotation.x = q_corrected.x();
-        imu_tsfm.transform.rotation.y = q_corrected.y();
-        imu_tsfm.transform.rotation.z = q_corrected.z();
-        imu_tsfm.transform.rotation.w = q_corrected.w();
+        imu_tsfm.transform.translation.x = 0;
+        imu_tsfm.transform.translation.y = 0;
+        imu_tsfm.transform.translation.z = 0;
+        imu_tsfm.transform.rotation.x = q_corrected.inverse().x();
+        imu_tsfm.transform.rotation.y = q_corrected.inverse().y();
+        imu_tsfm.transform.rotation.z = q_corrected.inverse().z();
+        imu_tsfm.transform.rotation.w = q_corrected.inverse().w();
 
         imu_tf_calibrated_ = q_corrected;
 
