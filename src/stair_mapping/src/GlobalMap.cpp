@@ -291,7 +291,7 @@ namespace stair_mapping
 
         // Compensation model:
         // c = k * weighted_dist_err
-        return -0.06 * weighted_err;
+        return -0.03 * weighted_err;
     }
 
     bool GlobalMap::runGlobalPoseOptimizer()
@@ -369,8 +369,8 @@ namespace stair_mapping
             // T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
 
             // compensate X drift due to the foot shape by coe * distance_traversed
-            T_m2gm_compensate_[i](0, 3) = 0.02 * (x_frame);
-            T_m2gm_compensate_[i](1, 3) = 0.02 * (y_frame);
+            T_m2gm_compensate_[i](0, 3) = 0.01 * (x_frame);
+            T_m2gm_compensate_[i](1, 3) = 0.01 * (y_frame);
             // T_m2gm_compensate_[i](0, 3) = 0 * (x_frame);
         }
 

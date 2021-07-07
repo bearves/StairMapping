@@ -254,7 +254,7 @@ namespace stair_mapping
         double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
         ROS_INFO("Match error from guess: %lf %lf", lin_err, ang_err);
         if (lin_err > 0.03 || 
-            ang_err > 0.03)
+            ang_err > 0.04)
         {
             ROS_ERROR("Large match error detected: %lf %lf", lin_err, ang_err);
             transform_result = init_guess;
