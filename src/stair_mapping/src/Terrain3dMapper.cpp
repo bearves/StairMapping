@@ -37,7 +37,7 @@ namespace stair_mapping
     {
         using namespace Eigen;
 
-        int submap_store_cap = 2;
+        int submap_store_cap = 1;
 
         // reject empty cloud
         if (p_in_cloud->IsEmpty()) return;

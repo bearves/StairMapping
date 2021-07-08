@@ -38,12 +38,11 @@ namespace stair_mapping
         global_map_opt_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_opt_points", 1);
         tip_points_pub_ = node.advertise<sensor_msgs::PointCloud2>("tip_points", 1);
 
-        odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &Terrain3dMapperNode::odomMsgCallback, this);
-        imu_sub_ = node.subscribe("/qz_state_publisher/robot_imu", 1, &Terrain3dMapperNode::imuMsgCallback, this);
-        pcl_sub_ = node.subscribe("/camera/depth/color/points", 1, &Terrain3dMapperNode::pclMsgCallback, this);
-        
         p_sync_rgbd_ = std::shared_ptr<RGBDSync>(new RGBDSync(color_img_sub_, depth_img_sub_, cam_info_sub_, 5));
         p_sync_rgbd_->registerCallback(&Terrain3dMapperNode::rgbdImgMsgCallback, this);
+
+        odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &Terrain3dMapperNode::odomMsgCallback, this);
+        imu_sub_ = node.subscribe("/qz_state_publisher/robot_imu", 1, &Terrain3dMapperNode::imuMsgCallback, this);
 
         if (message_version_ == 1)
         {
@@ -89,18 +88,16 @@ namespace stair_mapping
             rgbd_converted_pub_.publish(rgbd_out_cloud2);
         }
 
+        pclFrontend(rgbd_pc, color_msg->header.stamp);
     }
 
-    void Terrain3dMapperNode::pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg)
+    void Terrain3dMapperNode::pclFrontend(const PtCldPtr& p_in_cloud, const ros::Time& stamp)
     {
         using namespace Eigen;
-        PtCldPtr p_in_cloud = std::make_shared<PtCld>();
         PtCldPtr p_pre_cloud = std::make_shared<PtCld>();
 
         sensor_msgs::PointCloud2 pre_out_cloud2;
         sensor_msgs::PointCloud2 submap_out_cloud2;
-
-        open3d_conversions::rosToOpen3d(msg, *p_in_cloud);
 
         // transform using imu
         imu_msg_mtx_.lock();
@@ -125,7 +122,7 @@ namespace stair_mapping
         {
             open3d_conversions::open3dToRos(*p_pre_cloud, pre_out_cloud2);
             pre_out_cloud2.header.frame_id = "camera_depth_optical_frame";
-            pre_out_cloud2.header.stamp = msg->header.stamp;
+            pre_out_cloud2.header.stamp = stamp;
             preprocess_pub_.publish(pre_out_cloud2);
         }
 
@@ -140,7 +137,7 @@ namespace stair_mapping
         {
             open3d_conversions::open3dToRos(*p_submap_cloud, submap_out_cloud2);
             submap_out_cloud2.header.frame_id = "camera_depth_optical_frame";
-            submap_out_cloud2.header.stamp = msg->header.stamp;
+            submap_out_cloud2.header.stamp = stamp;
             submap_pub_.publish(submap_out_cloud2);
         }
     }

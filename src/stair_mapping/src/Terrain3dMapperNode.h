@@ -35,7 +35,7 @@ namespace stair_mapping
         typedef sensor_msgs::Image Img;
         typedef sensor_msgs::CameraInfo CamInfo;
         typedef message_filters::TimeSynchronizer<Img, Img, CamInfo> RGBDSync;
-        ros::Subscriber pcl_sub_;
+
         ros::Subscriber odom_sub_;
         ros::Subscriber tip_state_sub_;
         ros::Subscriber gait_phase_sub_;
@@ -73,7 +73,7 @@ namespace stair_mapping
         RobotKinetics robot_kin_;
         ImuCalibrator imu_calibrator_;
 
-        void pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
+        void pclFrontend(const PtCldPtr& p_in_cloud, const ros::Time& stamp);
         void odomMsgCallback(const nav_msgs::OdometryConstPtr &msg);
         void imuMsgCallback(const sensor_msgs::ImuConstPtr &msg);
         void tipStateCallback(const mini_bridge::RobotTipStateConstPtr &msg);
