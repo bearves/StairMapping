@@ -7,7 +7,10 @@
 namespace stair_mapping
 {
     Terrain3dMapperNode::Terrain3dMapperNode(ros::NodeHandle& node) :
-        is_imu_transform_ok_(false)
+        is_imu_transform_ok_(false),
+        color_img_sub_(node, "/camera/color/image_raw", 1),
+        depth_img_sub_(node, "/camera/aligned_depth_to_color/image_raw", 1),
+        cam_info_sub_(node, "/camera/color/camera_info", 1)
     {
         using namespace Eigen;
 
@@ -38,6 +41,9 @@ namespace stair_mapping
         odom_sub_ = node.subscribe("/qz_state_publisher/robot_odom", 1, &Terrain3dMapperNode::odomMsgCallback, this);
         imu_sub_ = node.subscribe("/qz_state_publisher/robot_imu", 1, &Terrain3dMapperNode::imuMsgCallback, this);
         pcl_sub_ = node.subscribe("/camera/depth/color/points", 1, &Terrain3dMapperNode::pclMsgCallback, this);
+        
+        p_sync_rgbd_ = std::shared_ptr<RGBDSync>(new RGBDSync(color_img_sub_, depth_img_sub_, cam_info_sub_, 5));
+        p_sync_rgbd_->registerCallback(&Terrain3dMapperNode::rgbdImgMsgCallback, this);
 
         if (message_version_ == 1)
         {
@@ -49,6 +55,29 @@ namespace stair_mapping
             tip_state_sub_ = node.subscribe("/qz_state_publisher/robot_tip_state", 1, &Terrain3dMapperNode::tipStateV2Callback, this);
             gait_phase_sub_ = node.subscribe("/qz_state_publisher/robot_gait_phase", 1, &Terrain3dMapperNode::gaitPhaseV2Callback, this);
         }
+    }
+    void Terrain3dMapperNode::rgbdImgMsgCallback(
+        const Img::ConstPtr &color_msg,
+        const Img::ConstPtr &depth_msg,
+        const CamInfo::ConstPtr &caminfo_msg)
+    {
+        static int count = 0;
+        ROS_INFO("Cam info: K=%lf D=%lf cx=%ld cy=%ld", 
+            caminfo_msg->K[0], caminfo_msg->D[0], 
+            caminfo_msg->binning_x, caminfo_msg->binning_y);
+        
+        open3d::geometry::Image color,depth;
+        color.Prepare(color_msg->width, color_msg->height, 3, 1);
+        color.data_ = color_msg->data;
+        depth.Prepare(depth_msg->width, depth_msg->height, 1, 2);
+        depth.data_ = depth_msg->data;
+        open3d::geometry::RGBDImage rgbd_frame(color, depth);
+        
+        PtCldPtr pc = std::make_shared<PtCld>();
+        pc = open3d::geometry::PointCloud::CreateFromRGBDImage(rgbd_frame, intrinsic);
+
+        count++;
+        
     }
 
     void Terrain3dMapperNode::pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg)

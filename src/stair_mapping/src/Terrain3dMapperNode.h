@@ -10,6 +10,10 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/CameraInfo.h>
 #include <eigen3/Eigen/Dense>
 #include <thread>
 #include <mutex>
@@ -28,11 +32,18 @@ namespace stair_mapping
         Terrain3dMapperNode(ros::NodeHandle& node);
         void startMapServer();
     private:
+        typedef sensor_msgs::Image Img;
+        typedef sensor_msgs::CameraInfo CamInfo;
+        typedef message_filters::TimeSynchronizer<Img, Img, CamInfo> RGBDSync;
         ros::Subscriber pcl_sub_;
         ros::Subscriber odom_sub_;
         ros::Subscriber tip_state_sub_;
         ros::Subscriber gait_phase_sub_;
         ros::Subscriber imu_sub_;
+        message_filters::Subscriber<sensor_msgs::Image> color_img_sub_;
+        message_filters::Subscriber<sensor_msgs::Image> depth_img_sub_;
+        message_filters::Subscriber<sensor_msgs::CameraInfo> cam_info_sub_;
+        std::shared_ptr<RGBDSync> p_sync_rgbd_;
 
         ros::Publisher imu_transformed_pub_;
         ros::Publisher preprocess_pub_;
@@ -69,6 +80,10 @@ namespace stair_mapping
         void gaitPhaseCallback(const mini_bridge::GaitPhaseConstPtr &msg);
         void tipStateV2Callback(const mini_bridge::RobotTipStateV2ConstPtr &msg);
         void gaitPhaseV2Callback(const mini_bridge::GaitPhaseV2ConstPtr &msg);
+        void rgbdImgMsgCallback(
+            const Img::ConstPtr &color_msg,
+            const Img::ConstPtr &depth_msg,
+            const CamInfo::ConstPtr &caminfo_msg);
 
         Eigen::Matrix4d getPoseMatrix(const nav_msgs::Odometry &odom);
 
