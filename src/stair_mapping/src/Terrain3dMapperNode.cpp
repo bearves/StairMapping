@@ -27,7 +27,7 @@ namespace stair_mapping
 
         if (display_process_details_)
         {
-            imu_transformed_pub_ = node.advertise<sensor_msgs::PointCloud2>("transformed_points", 1);
+            rgbd_converted_pub_ = node.advertise<sensor_msgs::PointCloud2>("rgbd_converted_points", 1);
             preprocess_pub_ = node.advertise<sensor_msgs::PointCloud2>("preprocessed_points", 1);
             submap_pub_ = node.advertise<sensor_msgs::PointCloud2>("submap_points", 1);
             global_map_raw_pub_ = node.advertise<sensor_msgs::PointCloud2>("global_map_raw_points", 1);
@@ -61,23 +61,34 @@ namespace stair_mapping
         const Img::ConstPtr &depth_msg,
         const CamInfo::ConstPtr &caminfo_msg)
     {
-        static int count = 0;
-        ROS_INFO("Cam info: K=%lf D=%lf cx=%ld cy=%ld", 
-            caminfo_msg->K[0], caminfo_msg->D[0], 
-            caminfo_msg->binning_x, caminfo_msg->binning_y);
+        ROS_INFO("Cam info: fx=%lf fy=%lf cx=%lf cy=%lf", 
+            caminfo_msg->P[0], caminfo_msg->P[0], 
+            caminfo_msg->P[2], caminfo_msg->P[6]);
+
+        open3d::camera::PinholeCameraIntrinsic intrinsic;
+        intrinsic.SetIntrinsics(caminfo_msg->width, caminfo_msg->height, 
+                                caminfo_msg->P[0], caminfo_msg->P[5],
+                                caminfo_msg->P[2], caminfo_msg->P[6]);
         
         open3d::geometry::Image color,depth;
-        color.Prepare(color_msg->width, color_msg->height, 3, 1);
+        color.Prepare(color_msg->width, color_msg->height, 3, 1); // RGB8
         color.data_ = color_msg->data;
-        depth.Prepare(depth_msg->width, depth_msg->height, 1, 2);
+        depth.Prepare(depth_msg->width, depth_msg->height, 1, 2); // Mono16
         depth.data_ = depth_msg->data;
-        open3d::geometry::RGBDImage rgbd_frame(color, depth);
+        open3d::geometry::RGBDImage rgbd_frame(color, *depth.ConvertDepthToFloatImage());
         
-        PtCldPtr pc = std::make_shared<PtCld>();
-        pc = open3d::geometry::PointCloud::CreateFromRGBDImage(rgbd_frame, intrinsic);
+        sensor_msgs::PointCloud2 rgbd_out_cloud2;
+        PtCldPtr rgbd_pc = std::make_shared<PtCld>();
+        rgbd_pc = open3d::geometry::PointCloud::CreateFromRGBDImage(rgbd_frame, intrinsic);
 
-        count++;
-        
+        if (display_process_details_)
+        {
+            open3d_conversions::open3dToRos(*rgbd_pc, rgbd_out_cloud2);
+            rgbd_out_cloud2.header.frame_id = "camera_depth_optical_frame";
+            rgbd_out_cloud2.header.stamp = color_msg->header.stamp;
+            rgbd_converted_pub_.publish(rgbd_out_cloud2);
+        }
+
     }
 
     void Terrain3dMapperNode::pclMsgCallback(const sensor_msgs::PointCloud2ConstPtr &msg)

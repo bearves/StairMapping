@@ -45,7 +45,7 @@ namespace stair_mapping
         message_filters::Subscriber<sensor_msgs::CameraInfo> cam_info_sub_;
         std::shared_ptr<RGBDSync> p_sync_rgbd_;
 
-        ros::Publisher imu_transformed_pub_;
+        ros::Publisher rgbd_converted_pub_;
         ros::Publisher preprocess_pub_;
         ros::Publisher submap_pub_;
         ros::Publisher global_map_opt_pub_;
