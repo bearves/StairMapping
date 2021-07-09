@@ -223,62 +223,63 @@ namespace stair_mapping
         // auto tsfm_icp = open3d::core::eigen_converter::TensorToEigenMatrixXd(result.transformation_);
 
         // ICP Legacy with normal
-        // auto result = open3d::pipelines::registration::RegistrationICP(
-        //     *p_input_cloud_cr, *p_target_cloud_cr,
-        //     0.08, Eigen::Matrix4d::Identity(),
-        //     open3d::pipelines::registration::TransformationEstimationPointToPlane(),
-        //     open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
-        // );
-        // auto tsfm_icp = result.transformation_;
+        auto result = open3d::pipelines::registration::RegistrationICP(
+            *p_input_cloud_cr, *p_target_cloud_cr,
+            0.08, Eigen::Matrix4d::Identity(),
+            open3d::pipelines::registration::TransformationEstimationPointToPlane(),
+            open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 30)
+        );
+        auto tsfm_icp = result.transformation_;
+
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Legacy RGBD ICP algorithm
-        auto result_rgbd = open3d::pipelines::odometry::ComputeRGBDOdometry(
-            input_rgbd_img,
-            target_rgbd_img,
-            intrinsic_,
-            init_guess_cam
-        );
-        bool is_success = false;
-        Matrix4d tsfm_rgbd;
-        std::tie(is_success, tsfm_rgbd, std::ignore) = result_rgbd;
+        // auto result_rgbd = open3d::pipelines::odometry::ComputeRGBDOdometry(
+        //     input_rgbd_img,
+        //     target_rgbd_img,
+        //     intrinsic_,
+        //     init_guess_cam
+        // );
+        // bool is_success = false;
+        // Matrix4d tsfm_rgbd;
+        // std::tie(is_success, tsfm_rgbd, std::ignore) = result_rgbd;
 
         // Tensor RGBD ICP algorithm
         // convert to tensor rgbd image
-        timer.Start();
-        //open3d::t::geometry::RGBDImage input_rgbd_img_t(
-        //    open3d::t::geometry::Image::FromLegacyImage(input_rgbd_img.color_).To(open3d::core::Device("CUDA:0")),
-        //    open3d::t::geometry::Image::FromLegacyImage(input_rgbd_img.depth_).To(open3d::core::Device("CUDA:0"))
-        //);
-        //open3d::t::geometry::RGBDImage target_rgbd_img_t(
-        //    open3d::t::geometry::Image::FromLegacyImage(target_rgbd_img.color_).To(open3d::core::Device("CUDA:0")),
-        //    open3d::t::geometry::Image::FromLegacyImage(target_rgbd_img.depth_).To(open3d::core::Device("CUDA:0"))
-        //);
-        //// convert intrinsic to tensor
-        //auto focal_length = intrinsic_.GetFocalLength();
-        //auto principal_point = intrinsic_.GetPrincipalPoint();
-        //open3d::core::Tensor intrinsic_t = open3d::core::Tensor::Init<double>(
-        //    {{focal_length.first, 0, principal_point.first},
-        //     {0, focal_length.second, principal_point.second},
-        //     {0, 0, 1}}).To(open3d::core::Device("CUDA:0"));
-        //// init transform
-        //open3d::core::Tensor trans_t = 
-        //    open3d::core::eigen_converter::EigenMatrixToTensor(init_guess_cam)
-        //    .To(open3d::core::Device("CUDA:0"));
+        // timer.Start();
+        // open3d::t::geometry::RGBDImage input_rgbd_img_t(
+        //     open3d::t::geometry::Image::FromLegacyImage(input_rgbd_img.color_).To(open3d::core::Device("CUDA:0")),
+        //     open3d::t::geometry::Image::FromLegacyImage(input_rgbd_img.depth_).To(open3d::core::Device("CUDA:0"))
+        // );
+        // open3d::t::geometry::RGBDImage target_rgbd_img_t(
+        //     open3d::t::geometry::Image::FromLegacyImage(target_rgbd_img.color_).To(open3d::core::Device("CUDA:0")),
+        //     open3d::t::geometry::Image::FromLegacyImage(target_rgbd_img.depth_).To(open3d::core::Device("CUDA:0"))
+        // );
+        // // convert intrinsic to tensor
+        // auto focal_length = intrinsic_.GetFocalLength();
+        // auto principal_point = intrinsic_.GetPrincipalPoint();
+        // open3d::core::Tensor intrinsic_t = open3d::core::Tensor::Init<double>(
+        //     {{focal_length.first, 0, principal_point.first},
+        //      {0, focal_length.second, principal_point.second},
+        //      {0, 0, 1}}).To(open3d::core::Device("CUDA:0"));
+        // // init transform
+        // open3d::core::Tensor trans_t = 
+        //     open3d::core::eigen_converter::EigenMatrixToTensor(init_guess_cam)
+        //     .To(open3d::core::Device("CUDA:0"));
 
-        //// Parameters
-        //float depth_scale = 1.0f;
-        //float depth_diff = 0.07f;
-        //auto odom_method = open3d::t::pipelines::odometry::Method::Hybrid;
-        //// Apply odometry
-        //auto result_t = open3d::t::pipelines::odometry::RGBDOdometryMultiScale(
-        //    input_rgbd_img_t, target_rgbd_img_t, intrinsic_t, trans_t, depth_scale, 3.0,
-        //    std::vector<open3d::t::pipelines::odometry::OdometryConvergenceCriteria>{
-        //        30, 20, 10},
-        //    odom_method,
-        //    open3d::t::pipelines::odometry::OdometryLossParams(depth_diff));
+        // // Parameters
+        // float depth_scale = 1.0f;
+        // float depth_diff = 0.15f;
+        // auto odom_method = open3d::t::pipelines::odometry::Method::Hybrid;
+        // // Apply odometry
+        // auto result_t = open3d::t::pipelines::odometry::RGBDOdometryMultiScale(
+        //     input_rgbd_img_t, target_rgbd_img_t, intrinsic_t, trans_t, depth_scale, 3.0,
+        //     std::vector<open3d::t::pipelines::odometry::OdometryConvergenceCriteria>{
+        //         40, 20, 10},
+        //     odom_method,
+        //     open3d::t::pipelines::odometry::OdometryLossParams(depth_diff, 3, 0.3));
         
-        //auto tsfm_rgbd = open3d::core::eigen_converter::TensorToEigenMatrixXd(result_t.transformation_);
-        timer.Stop();
+        // auto tsfm_rgbd = open3d::core::eigen_converter::TensorToEigenMatrixXd(result_t.transformation_);
+        // timer.Stop();
 
         // info mat computation: firstly transform to base coordinate
         p_input_cloud_cr->Transform(t_cam_wrt_base);
@@ -288,7 +289,7 @@ namespace stair_mapping
         //ROS_INFO("RGBD result: fitness: %lf rsme: %lf", result_t.fitness_, result_t.inlier_rmse_);
         //ROS_INFO("ICP result: fitness: %lf rsme: %lf", result.fitness_, result.inlier_rmse_);
         ROS_INFO("Applied ICP iteration(s) in %lf ms", timer.GetDuration());
-        std::cout << "RGBD Odometry:\n" << tsfm_rgbd << "\n";
+        //std::cout << "RGBD Odometry:\n" << tsfm_rgbd << "\n";
         //std::cout << "ICP Odometry:\n" << tsfm_icp * init_guess_cam << "\n";
 
         if (transform_info.hasNaN())
@@ -298,11 +299,11 @@ namespace stair_mapping
                       << transform_info << std::endl;
         }
 
-        //if (result_t.fitness_ > 0.4)
-        if (is_success)
+        if (result.fitness_ > 0.4)
+        // if (is_success)
         {
-            //transform_result = t_cam_wrt_base * tsfm_icp * init_guess_cam * t_base_wrt_cam;
-            transform_result = t_cam_wrt_base * tsfm_rgbd * t_base_wrt_cam;
+            transform_result = t_cam_wrt_base * tsfm_icp * init_guess_cam * t_base_wrt_cam;
+            //transform_result = t_cam_wrt_base * tsfm_rgbd * t_base_wrt_cam;
         }
         else
         {
@@ -325,8 +326,8 @@ namespace stair_mapping
             transform_result = init_guess;
         }
 
-        //return result_t.fitness_;
-        return is_success ? 1 : 0;
+        return result.fitness_;
+        // return is_success ? 1 : 0;
     }
 
     InfoMatrix SubMap::computeInfomation(

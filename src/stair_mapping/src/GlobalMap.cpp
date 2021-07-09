@@ -330,7 +330,7 @@ namespace stair_mapping
             // only weight translations
             ifm.diagonal() << 100, 100, 100, 1e-16, 1e-16, 1e-16;
             Pose3d t_edge(T_m2m_odom_[i + 1]);
-             pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
+            pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
         }
         // edge of orientation imu constraints
         //if (submap_cnt > 0)
