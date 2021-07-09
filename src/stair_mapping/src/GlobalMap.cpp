@@ -141,7 +141,7 @@ namespace stair_mapping
 
         // since only the old data are read and never changed
         // the map building process is thread safe
-        int lastn = submap_cnt - 100;
+        int lastn = submap_cnt - 200;
 
         if (display_raw_result)
         {
@@ -328,7 +328,7 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight translations
-            ifm.diagonal() << 8100, 8100, 8100, 1e-16, 1e-16, 1e-16;
+            ifm.diagonal() << 100, 100, 100, 1e-16, 1e-16, 1e-16;
             Pose3d t_edge(T_m2m_odom_[i + 1]);
              pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
         }
@@ -341,7 +341,7 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 1600, 1600, 1600;
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 900, 900, 900;
             pg_.addEdge(EDGE_TYPE::ABS_ROTATION, 0, i + 1, t_edge, ifm);
         }
 
@@ -369,8 +369,8 @@ namespace stair_mapping
             // T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
 
             // compensate X drift due to the foot shape by coe * distance_traversed
-            T_m2gm_compensate_[i](0, 3) = 0.01 * (x_frame);
-            T_m2gm_compensate_[i](1, 3) = 0.01 * (y_frame);
+            T_m2gm_compensate_[i](0, 3) = 0.0 * (x_frame);
+            T_m2gm_compensate_[i](1, 3) = 0.0 * (y_frame);
             // T_m2gm_compensate_[i](0, 3) = 0 * (x_frame);
         }
 

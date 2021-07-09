@@ -14,6 +14,8 @@ namespace stair_mapping
 
         void matchSubmap(
             const PtCldPtr &p_in_cloud,
+            const open3d::geometry::RGBDImage &rgbd_img,
+            const open3d::camera::PinholeCameraIntrinsic &intrinsic,
             PtCldPtr &p_out_cloud,
             const Eigen::Matrix4d &t_frame_odom,
             const Eigen::Matrix4d &t_cam_wrt_base,

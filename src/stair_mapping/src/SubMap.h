@@ -19,6 +19,8 @@ public:
 
     void addFrame(
         PtCld frame,
+        open3d::geometry::RGBDImage rgbd_img,
+        const open3d::camera::PinholeCameraIntrinsic intrinsic,
         const Eigen::Matrix4d& t_f2sm, 
         const Eigen::Matrix4d& t_frame_odom,
         const Eigen::Matrix4d& t_cam_wrt_base,
@@ -29,6 +31,7 @@ public:
 
     double match( 
         const PtCldPtr& frame, 
+        const open3d::geometry::RGBDImage& rgbd_img,
         const Eigen::Matrix4d& init_guess, 
         const Eigen::Matrix4d& t_cam_wrt_base, 
         Eigen::Matrix4d& t_match_result,
@@ -55,6 +58,10 @@ private:
     std::vector<Eigen::Matrix4d> T_odom_;
     std::vector<Eigen::Matrix<double, 4, 6> > tip_states_;
     std::vector<PtCld> frames_;
+    std::vector<open3d::geometry::RGBDImage> rgbd_imgs_;
+
+    open3d::camera::PinholeCameraIntrinsic intrinsic_;
+
     PtCldPtr p_submap_points_;
     PtCldPtr p_cropped_submap_points_;
 
@@ -63,6 +70,8 @@ private:
     double matchIcp(
         const PtCldPtr& input_cloud, 
         const PtCldPtr& target_cloud, 
+        const open3d::geometry::RGBDImage& input_rgbd_img,
+        const open3d::geometry::RGBDImage& target_rgbd_img,
         const Eigen::Matrix4d& init_guess, 
         const Eigen::Matrix4d& t_cam_wrt_base, 
         Eigen::Matrix4d& transform_result,

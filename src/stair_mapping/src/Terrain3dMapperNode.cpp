@@ -88,10 +88,14 @@ namespace stair_mapping
             rgbd_converted_pub_.publish(rgbd_out_cloud2);
         }
 
-        pclFrontend(rgbd_pc, color_msg->header.stamp);
+        pclFrontend(rgbd_pc, rgbd_frame, intrinsic, color_msg->header.stamp);
     }
 
-    void Terrain3dMapperNode::pclFrontend(const PtCldPtr& p_in_cloud, const ros::Time& stamp)
+    void Terrain3dMapperNode::pclFrontend(
+        const PtCldPtr &p_in_cloud,
+        const open3d::geometry::RGBDImage &rgbd_img,
+        const open3d::camera::PinholeCameraIntrinsic &intrinsic,
+        const ros::Time &stamp)
     {
         using namespace Eigen;
         PtCldPtr p_pre_cloud = std::make_shared<PtCld>();
@@ -131,7 +135,12 @@ namespace stair_mapping
         odom_msg_mtx_.lock();
         Matrix4d t_frame_odom = current_odom_mat_;
         odom_msg_mtx_.unlock();
-        terrain_mapper_.matchSubmap(p_pre_cloud, p_submap_cloud, t_frame_odom, T_camera_wrt_base, tip_states);
+
+        ROS_INFO("OK1");
+        terrain_mapper_.matchSubmap(
+            p_pre_cloud, rgbd_img, intrinsic, p_submap_cloud, 
+            t_frame_odom, T_camera_wrt_base, tip_states);
+        ROS_INFO("OK2");
 
         if (display_process_details_)
         {

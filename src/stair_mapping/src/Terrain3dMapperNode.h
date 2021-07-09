@@ -73,7 +73,12 @@ namespace stair_mapping
         RobotKinetics robot_kin_;
         ImuCalibrator imu_calibrator_;
 
-        void pclFrontend(const PtCldPtr& p_in_cloud, const ros::Time& stamp);
+        void pclFrontend(
+            const PtCldPtr& p_in_cloud, 
+            const open3d::geometry::RGBDImage& rgbd_img, 
+            const open3d::camera::PinholeCameraIntrinsic& intrinsic,
+            const ros::Time& stamp);
+
         void odomMsgCallback(const nav_msgs::OdometryConstPtr &msg);
         void imuMsgCallback(const sensor_msgs::ImuConstPtr &msg);
         void tipStateCallback(const mini_bridge::RobotTipStateConstPtr &msg);

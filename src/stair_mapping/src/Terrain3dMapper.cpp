@@ -14,7 +14,7 @@ namespace stair_mapping
     {
         // crop in the camera local frame
         PtCldPtr p_cloud_cr = std::make_shared<PtCld>();
-        PreProcessor::crop(p_in_cloud, p_cloud_cr, Eigen::Vector3d(-0.5, -2, 0.1), Eigen::Vector3d(0.5, 2, 3));
+        PreProcessor::crop(p_in_cloud, p_cloud_cr, Eigen::Vector3d(-0.4, -2, 0.1), Eigen::Vector3d(0.4, 2, 3));
         ROS_INFO("After crop size: %ld -> %ld", p_in_cloud->points_.size(), p_cloud_cr->points_.size());
 
         // ROS_INFO("Cropped pcd size: %ld", p_cloud_cr->points_.size());
@@ -30,6 +30,8 @@ namespace stair_mapping
     // scan-to-submap matcher
     void Terrain3dMapper::matchSubmap(
         const PtCldPtr &p_in_cloud,
+        const open3d::geometry::RGBDImage &rgbd_img,
+        const open3d::camera::PinholeCameraIntrinsic &intrinsic,
         PtCldPtr &p_out_cloud,
         const Eigen::Matrix4d &t_frame_odom,
         const Eigen::Matrix4d &t_cam_wrt_base,
@@ -86,7 +88,7 @@ namespace stair_mapping
 
         try
         {
-            score = last_sm->match(p_in_cloud, t_guess, t_cam_wrt_base, t_frame_to_last_map, info_mat);
+            score = last_sm->match(p_in_cloud, rgbd_img, t_guess, t_cam_wrt_base, t_frame_to_last_map, info_mat);
         }
         catch (std::runtime_error &ex)
         {
@@ -105,7 +107,8 @@ namespace stair_mapping
 
                 SubMap::Ptr p_sm(new SubMap(submap_store_cap));
                 p_sm->init();
-                p_sm->addFrame(*p_in_cloud, Matrix4d::Identity(), t_frame_odom, t_cam_wrt_base, tip_states);
+                p_sm->addFrame(*p_in_cloud, rgbd_img, intrinsic, 
+                    Matrix4d::Identity(), t_frame_odom, t_cam_wrt_base, tip_states);
                 // match to last submap if exists, record transform Ti
                 global_map_.addNewSubmap(
                     p_sm, 
@@ -119,7 +122,8 @@ namespace stair_mapping
             else
             {
                 // add current pcl to current submap
-                last_sm->addFrame(*p_in_cloud, t_frame_to_last_map, t_frame_odom, t_cam_wrt_base, tip_states);
+                last_sm->addFrame(*p_in_cloud, rgbd_img, intrinsic, 
+                    t_frame_to_last_map, t_frame_odom, t_cam_wrt_base, tip_states);
                 current_sm = last_sm;
             }
         }

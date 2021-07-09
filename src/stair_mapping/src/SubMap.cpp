@@ -20,21 +20,28 @@ namespace stair_mapping
         current_count_ = 0;
         T_f2sm_.clear();
         frames_.clear();
+        rgbd_imgs_.clear();
         T_odom_.clear();
         T_cam_wrt_base_.clear();
     }
 
-    void SubMap::addFrame(PtCld frame, 
+    void SubMap::addFrame(
+        PtCld frame, 
+        open3d::geometry::RGBDImage rgbd_img,
+        const open3d::camera::PinholeCameraIntrinsic intrinsic,
         const Eigen::Matrix4d& t_f2sm, 
         const Eigen::Matrix4d& t_frame_odom,
         const Eigen::Matrix4d& t_cam_wrt_base,
         const Eigen::Matrix<double, 4, 6>& tip_states)
     {
         frames_.push_back(frame);
+        rgbd_imgs_.push_back(rgbd_img);
         T_f2sm_.push_back(t_f2sm); // ^{b_{i-1}}T_{b_i}
         T_cam_wrt_base_.push_back(t_cam_wrt_base);
         T_odom_.push_back(t_frame_odom);
         tip_states_.push_back(tip_states);
+
+        intrinsic_ = intrinsic;
         
         current_count_++;
         updateSubmapPoints();
@@ -80,6 +87,7 @@ namespace stair_mapping
 
     double SubMap::match(
         const PtCldPtr& frame, 
+        const open3d::geometry::RGBDImage& rgbd_img,
         const Eigen::Matrix4d& init_guess, 
         const Eigen::Matrix4d& t_cam_wrt_base, 
         Eigen::Matrix4d& t_match_result,
@@ -105,6 +113,8 @@ namespace stair_mapping
             double score = matchIcp(
                 frame, 
                 p_submap_points_, 
+                rgbd_img,
+                rgbd_imgs_[0],
                 init_guess, 
                 t_cam_wrt_base,
                 t_match_result,
@@ -131,6 +141,8 @@ namespace stair_mapping
     double SubMap::matchIcp(
         const PtCldPtr& input_cloud, 
         const PtCldPtr& target_cloud, 
+        const open3d::geometry::RGBDImage& input_rgbd_img,
+        const open3d::geometry::RGBDImage& target_rgbd_img,
         const Eigen::Matrix4d& init_guess, 
         const Eigen::Matrix4d& t_cam_wrt_base, 
         Eigen::Matrix4d& transform_result,
@@ -141,7 +153,7 @@ namespace stair_mapping
 
         auto t_base_wrt_cam = Affine3d(t_cam_wrt_base).inverse().matrix();
         // the transform guess in the camera's local frame
-        auto init_guess_cam = t_base_wrt_cam * init_guess * t_cam_wrt_base;
+        Matrix4d init_guess_cam = t_base_wrt_cam * init_guess * t_cam_wrt_base;
 
         PtCldPtr p_input_cloud_init = std::make_shared<PtCld>();
         PtCldPtr p_input_cloud_cr = std::make_shared<PtCld>();
@@ -193,8 +205,8 @@ namespace stair_mapping
         timer.Stop();
         ROS_INFO("Normal estimation in %lf ms", timer.GetDuration());
 
-        timer.Start();
-
+        ////////////////////////////////////////////////////////////////////////////////////////////
+        // Pointcloud ICP algorithm
         // Tensor ICP 
         // auto source = open3d::t::geometry::PointCloud::FromLegacyPointCloud(*p_input_cloud_cr);
         // auto target = open3d::t::geometry::PointCloud::FromLegacyPointCloud(*p_target_cloud_cr);
@@ -211,22 +223,73 @@ namespace stair_mapping
         // auto tsfm_icp = open3d::core::eigen_converter::TensorToEigenMatrixXd(result.transformation_);
 
         // ICP Legacy with normal
-        auto result = open3d::pipelines::registration::RegistrationICP(
-            *p_input_cloud_cr, *p_target_cloud_cr,
-            0.08, Eigen::Matrix4d::Identity(),
-            open3d::pipelines::registration::TransformationEstimationPointToPlane(),
-            open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
+        // auto result = open3d::pipelines::registration::RegistrationICP(
+        //     *p_input_cloud_cr, *p_target_cloud_cr,
+        //     0.08, Eigen::Matrix4d::Identity(),
+        //     open3d::pipelines::registration::TransformationEstimationPointToPlane(),
+        //     open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
+        // );
+        // auto tsfm_icp = result.transformation_;
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+        // Legacy RGBD ICP algorithm
+        auto result_rgbd = open3d::pipelines::odometry::ComputeRGBDOdometry(
+            input_rgbd_img,
+            target_rgbd_img,
+            intrinsic_,
+            init_guess_cam
         );
-        auto tsfm_icp = result.transformation_;
+        bool is_success = false;
+        Matrix4d tsfm_rgbd;
+        std::tie(is_success, tsfm_rgbd, std::ignore) = result_rgbd;
+
+        // Tensor RGBD ICP algorithm
+        // convert to tensor rgbd image
+        timer.Start();
+        //open3d::t::geometry::RGBDImage input_rgbd_img_t(
+        //    open3d::t::geometry::Image::FromLegacyImage(input_rgbd_img.color_).To(open3d::core::Device("CUDA:0")),
+        //    open3d::t::geometry::Image::FromLegacyImage(input_rgbd_img.depth_).To(open3d::core::Device("CUDA:0"))
+        //);
+        //open3d::t::geometry::RGBDImage target_rgbd_img_t(
+        //    open3d::t::geometry::Image::FromLegacyImage(target_rgbd_img.color_).To(open3d::core::Device("CUDA:0")),
+        //    open3d::t::geometry::Image::FromLegacyImage(target_rgbd_img.depth_).To(open3d::core::Device("CUDA:0"))
+        //);
+        //// convert intrinsic to tensor
+        //auto focal_length = intrinsic_.GetFocalLength();
+        //auto principal_point = intrinsic_.GetPrincipalPoint();
+        //open3d::core::Tensor intrinsic_t = open3d::core::Tensor::Init<double>(
+        //    {{focal_length.first, 0, principal_point.first},
+        //     {0, focal_length.second, principal_point.second},
+        //     {0, 0, 1}}).To(open3d::core::Device("CUDA:0"));
+        //// init transform
+        //open3d::core::Tensor trans_t = 
+        //    open3d::core::eigen_converter::EigenMatrixToTensor(init_guess_cam)
+        //    .To(open3d::core::Device("CUDA:0"));
+
+        //// Parameters
+        //float depth_scale = 1.0f;
+        //float depth_diff = 0.07f;
+        //auto odom_method = open3d::t::pipelines::odometry::Method::Hybrid;
+        //// Apply odometry
+        //auto result_t = open3d::t::pipelines::odometry::RGBDOdometryMultiScale(
+        //    input_rgbd_img_t, target_rgbd_img_t, intrinsic_t, trans_t, depth_scale, 3.0,
+        //    std::vector<open3d::t::pipelines::odometry::OdometryConvergenceCriteria>{
+        //        30, 20, 10},
+        //    odom_method,
+        //    open3d::t::pipelines::odometry::OdometryLossParams(depth_diff));
+        
+        //auto tsfm_rgbd = open3d::core::eigen_converter::TensorToEigenMatrixXd(result_t.transformation_);
+        timer.Stop();
 
         // info mat computation: firstly transform to base coordinate
         p_input_cloud_cr->Transform(t_cam_wrt_base);
         p_target_cloud_cr->Transform(t_cam_wrt_base);
         transform_info = computeInfomation(p_input_cloud_cr, p_target_cloud_cr);
 
-        timer.Stop();
-        ROS_INFO("ICP result: fitness: %lf rsme: %lf", result.fitness_, result.inlier_rmse_);
+        //ROS_INFO("RGBD result: fitness: %lf rsme: %lf", result_t.fitness_, result_t.inlier_rmse_);
+        //ROS_INFO("ICP result: fitness: %lf rsme: %lf", result.fitness_, result.inlier_rmse_);
         ROS_INFO("Applied ICP iteration(s) in %lf ms", timer.GetDuration());
+        std::cout << "RGBD Odometry:\n" << tsfm_rgbd << "\n";
+        //std::cout << "ICP Odometry:\n" << tsfm_icp * init_guess_cam << "\n";
 
         if (transform_info.hasNaN())
         {
@@ -235,9 +298,11 @@ namespace stair_mapping
                       << transform_info << std::endl;
         }
 
-        if (result.fitness_ > 0.4)
+        //if (result_t.fitness_ > 0.4)
+        if (is_success)
         {
-            transform_result = t_cam_wrt_base * tsfm_icp * init_guess_cam * t_base_wrt_cam;
+            //transform_result = t_cam_wrt_base * tsfm_icp * init_guess_cam * t_base_wrt_cam;
+            transform_result = t_cam_wrt_base * tsfm_rgbd * t_base_wrt_cam;
         }
         else
         {
@@ -253,14 +318,15 @@ namespace stair_mapping
         double lin_err = err.translation().norm();
         double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
         ROS_INFO("Match error from guess: %lf %lf", lin_err, ang_err);
-        if (lin_err > 0.03 || 
-            ang_err > 0.04)
+        if (lin_err > 0.08 || 
+            ang_err > 0.08)
         {
             ROS_ERROR("Large match error detected: %lf %lf", lin_err, ang_err);
             transform_result = init_guess;
         }
 
-        return result.fitness_;
+        //return result_t.fitness_;
+        return is_success ? 1 : 0;
     }
 
     InfoMatrix SubMap::computeInfomation(

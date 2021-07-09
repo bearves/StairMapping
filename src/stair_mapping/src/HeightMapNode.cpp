@@ -61,7 +61,7 @@ namespace stair_mapping
         double stair_height = 0.131;
         double stair_length = 0.25;
         double stair_width = 1.2;
-        double stairx0 = 1.5;
+        double stairx0 = 1.2;
         double offsetz = -0.36;
         int stair_cnt = 9;
 
