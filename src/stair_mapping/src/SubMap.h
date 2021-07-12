@@ -40,6 +40,23 @@ public:
     const PtCldPtr getSubmapPoints();
     const PtCldPtr getCroppedSubmapPoints();
     Eigen::Matrix4d getSubmapTfCamWrtBase();
+    bool getFirstRGBDFrame(open3d::geometry::RGBDImage& image)
+    {
+        if (rgbd_imgs_.size() > 0)
+        {
+            image = rgbd_imgs_[0];
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    };
+
+    open3d::camera::PinholeCameraIntrinsic getIntrinsic()
+    {
+        return intrinsic_;
+    }
 
     Eigen::Matrix<double, 4, 6> getLastTipPointsWithTransform(const Eigen::Matrix4d& tf);
 

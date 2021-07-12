@@ -246,13 +246,14 @@ namespace stair_mapping
         // Tensor RGBD ICP algorithm
         // convert to tensor rgbd image
         // timer.Start();
+        // auto device = open3d::core::Device("CUDA:0");
         // open3d::t::geometry::RGBDImage input_rgbd_img_t(
-        //     open3d::t::geometry::Image::FromLegacyImage(input_rgbd_img.color_).To(open3d::core::Device("CUDA:0")),
-        //     open3d::t::geometry::Image::FromLegacyImage(input_rgbd_img.depth_).To(open3d::core::Device("CUDA:0"))
+        //     open3d::t::geometry::Image::FromLegacyImage(input_rgbd_img.color_).To(device),
+        //     open3d::t::geometry::Image::FromLegacyImage(input_rgbd_img.depth_).To(device)
         // );
         // open3d::t::geometry::RGBDImage target_rgbd_img_t(
-        //     open3d::t::geometry::Image::FromLegacyImage(target_rgbd_img.color_).To(open3d::core::Device("CUDA:0")),
-        //     open3d::t::geometry::Image::FromLegacyImage(target_rgbd_img.depth_).To(open3d::core::Device("CUDA:0"))
+        //     open3d::t::geometry::Image::FromLegacyImage(target_rgbd_img.color_).To(device),
+        //     open3d::t::geometry::Image::FromLegacyImage(target_rgbd_img.depth_).To(device)
         // );
         // // convert intrinsic to tensor
         // auto focal_length = intrinsic_.GetFocalLength();
@@ -260,25 +261,25 @@ namespace stair_mapping
         // open3d::core::Tensor intrinsic_t = open3d::core::Tensor::Init<double>(
         //     {{focal_length.first, 0, principal_point.first},
         //      {0, focal_length.second, principal_point.second},
-        //      {0, 0, 1}}).To(open3d::core::Device("CUDA:0"));
+        //      {0, 0, 1}}).To(device);
         // // init transform
-        // open3d::core::Tensor trans_t = 
+        // open3d::core::Tensor trans_init_t = 
         //     open3d::core::eigen_converter::EigenMatrixToTensor(init_guess_cam)
-        //     .To(open3d::core::Device("CUDA:0"));
+        //     .To(device);
 
         // // Parameters
         // float depth_scale = 1.0f;
         // float depth_diff = 0.15f;
         // auto odom_method = open3d::t::pipelines::odometry::Method::Hybrid;
         // // Apply odometry
-        // auto result_t = open3d::t::pipelines::odometry::RGBDOdometryMultiScale(
-        //     input_rgbd_img_t, target_rgbd_img_t, intrinsic_t, trans_t, depth_scale, 3.0,
+        // auto result = open3d::t::pipelines::odometry::RGBDOdometryMultiScale(
+        //     input_rgbd_img_t, target_rgbd_img_t, intrinsic_t, trans_init_t, depth_scale, 5.0,
         //     std::vector<open3d::t::pipelines::odometry::OdometryConvergenceCriteria>{
         //         40, 20, 10},
         //     odom_method,
-        //     open3d::t::pipelines::odometry::OdometryLossParams(depth_diff, 3, 0.3));
+        //     open3d::t::pipelines::odometry::OdometryLossParams(depth_diff, 1, 0.8));
         
-        // auto tsfm_rgbd = open3d::core::eigen_converter::TensorToEigenMatrixXd(result_t.transformation_);
+        // auto tsfm_rgbd = open3d::core::eigen_converter::TensorToEigenMatrixXd(result.transformation_);
         // timer.Stop();
 
         // info mat computation: firstly transform to base coordinate
@@ -287,7 +288,7 @@ namespace stair_mapping
         transform_info = computeInfomation(p_input_cloud_cr, p_target_cloud_cr);
 
         //ROS_INFO("RGBD result: fitness: %lf rsme: %lf", result_t.fitness_, result_t.inlier_rmse_);
-        //ROS_INFO("ICP result: fitness: %lf rsme: %lf", result.fitness_, result.inlier_rmse_);
+        ROS_INFO("ICP result: fitness: %lf rsme: %lf", result.fitness_, result.inlier_rmse_);
         ROS_INFO("Applied ICP iteration(s) in %lf ms", timer.GetDuration());
         //std::cout << "RGBD Odometry:\n" << tsfm_rgbd << "\n";
         //std::cout << "ICP Odometry:\n" << tsfm_icp * init_guess_cam << "\n";
@@ -303,7 +304,7 @@ namespace stair_mapping
         // if (is_success)
         {
             transform_result = t_cam_wrt_base * tsfm_icp * init_guess_cam * t_base_wrt_cam;
-            //transform_result = t_cam_wrt_base * tsfm_rgbd * t_base_wrt_cam;
+            // transform_result = t_cam_wrt_base * tsfm_rgbd * t_base_wrt_cam;
         }
         else
         {
@@ -319,8 +320,8 @@ namespace stair_mapping
         double lin_err = err.translation().norm();
         double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
         ROS_INFO("Match error from guess: %lf %lf", lin_err, ang_err);
-        if (lin_err > 0.08 || 
-            ang_err > 0.08)
+        if (lin_err > 0.04 || 
+            ang_err > 0.04)
         {
             ROS_ERROR("Large match error detected: %lf %lf", lin_err, ang_err);
             transform_result = init_guess;

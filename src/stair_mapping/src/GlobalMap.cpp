@@ -127,6 +127,7 @@ namespace stair_mapping
     std::size_t GlobalMap::updateGlobalMapPoints(bool display_raw_result)
     {
         using namespace Eigen;
+        using namespace open3d;
 
         PtCldPtr p_all_raw_points = std::make_shared<PtCld>();
         PtCldPtr p_all_opt_points = std::make_shared<PtCld>();
@@ -160,17 +161,41 @@ namespace stair_mapping
         open3d::utility::Timer timer;
         timer.Start();
 
+        //for (int i = 0; i < submap_cnt; i++)
+        //{
+        //    if (i < lastn)
+        //        continue;
+        //    Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
+        //    auto transformed_opt_pts = *submaps_[i]->getCroppedSubmapPoints();
+        //    auto t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
+        //    // ^wp = ^wT_{b_i}' * ^bT_c * ^cp
+        //    transformed_opt_pts.Transform(T_m2gm_refined * t_cam_wrt_base);
+        //    p_all_opt_points->operator+=(transformed_opt_pts);
+        //}
+
+        // use tsdf integration
+        double length = 3.0;
+        double resolution = 512;
+        double sdf_trunc_percentage = 0.01;
+        pipelines::integration::ScalableTSDFVolume volume(
+            length / (double)resolution, length * sdf_trunc_percentage,
+            pipelines::integration::TSDFVolumeColorType::RGB8);
+
         for (int i = 0; i < submap_cnt; i++)
         {
             if (i < lastn)
                 continue;
             Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
-            auto transformed_opt_pts = *submaps_[i]->getCroppedSubmapPoints();
+            geometry::RGBDImage opt_rgbd_frame;
+            auto ret = submaps_[i]->getFirstRGBDFrame(opt_rgbd_frame);
+            if (!ret) continue;
+            auto intrinsic = submaps_[i]->getIntrinsic();
             auto t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
+            Matrix4d extrinsic = T_m2gm_refined * t_cam_wrt_base;
             // ^wp = ^wT_{b_i}' * ^bT_c * ^cp
-            transformed_opt_pts.Transform(T_m2gm_refined * t_cam_wrt_base);
-            p_all_opt_points->operator+=(transformed_opt_pts);
+            volume.Integrate(opt_rgbd_frame, intrinsic, extrinsic.inverse());
         }
+        p_all_opt_points = volume.ExtractPointCloud();
 
         // ready for calculating the distance between footholds and generated ground
         Matrix<double, 4, 6> last_tip_points;
@@ -328,13 +353,13 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight translations
-            ifm.diagonal() << 100, 100, 100, 1e-16, 1e-16, 1e-16;
+            ifm.diagonal() << 900, 900, 900, 1e-16, 1e-16, 1e-16;
             Pose3d t_edge(T_m2m_odom_[i + 1]);
             pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
         }
         // edge of orientation imu constraints
         //if (submap_cnt > 0)
-        for (int i = 0; i < submap_cnt - 1; i++)
+        for (int i = 0; i < submap_cnt - 1; i+=2)
         {
             //Pose3d t_edge(T_m2gm_imu_[submap_cnt - 1]);
             Pose3d t_edge(T_m2gm_imu_[i + 1]);

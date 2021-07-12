@@ -145,7 +145,7 @@ namespace stair_mapping
 
         const PtCldPtr opt_pc = global_map_.getGlobalMapOptPoints();
         PtCldPtr opt_pc_ds = std::make_shared<PtCld>();
-        PreProcessor::downSample(opt_pc, opt_pc_ds, 0.02);
+        PreProcessor::downSample(opt_pc, opt_pc_ds, 0.01);
         std::tie(global_opt_points_, std::ignore) = opt_pc_ds->RemoveRadiusOutliers(5, 0.05);
         
         ground_patch_points_ = global_map_.getGroundPatchPoints();

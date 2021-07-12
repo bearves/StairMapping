@@ -74,11 +74,11 @@ namespace stair_mapping
         color.data_ = color_msg->data;
         depth.Prepare(depth_msg->width, depth_msg->height, 1, 2); // Mono16
         depth.data_ = depth_msg->data;
-        open3d::geometry::RGBDImage rgbd_frame(color, *depth.ConvertDepthToFloatImage());
+        auto rgbd_frame = open3d::geometry::RGBDImage::CreateFromColorAndDepth(color, depth, 1000, 5, false);
         
         sensor_msgs::PointCloud2 rgbd_out_cloud2;
         PtCldPtr rgbd_pc = std::make_shared<PtCld>();
-        rgbd_pc = open3d::geometry::PointCloud::CreateFromRGBDImage(rgbd_frame, intrinsic);
+        rgbd_pc = open3d::geometry::PointCloud::CreateFromRGBDImage(*rgbd_frame, intrinsic);
 
         if (display_process_details_)
         {
@@ -88,7 +88,7 @@ namespace stair_mapping
             rgbd_converted_pub_.publish(rgbd_out_cloud2);
         }
 
-        pclFrontend(rgbd_pc, rgbd_frame, intrinsic, color_msg->header.stamp);
+        pclFrontend(rgbd_pc, *rgbd_frame, intrinsic, color_msg->header.stamp);
     }
 
     void Terrain3dMapperNode::pclFrontend(
