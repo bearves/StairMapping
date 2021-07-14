@@ -142,7 +142,7 @@ namespace stair_mapping
 
         // since only the old data are read and never changed
         // the map building process is thread safe
-        int lastn = submap_cnt - 200;
+        int lastn = submap_cnt - 100;
 
         if (display_raw_result)
         {
@@ -174,9 +174,9 @@ namespace stair_mapping
         //}
 
         // use tsdf integration
-        double length = 3.0;
+        double length = 12.0;
         double resolution = 512;
-        double sdf_trunc_percentage = 0.01;
+        double sdf_trunc_percentage = 0.015;
         pipelines::integration::ScalableTSDFVolume volume(
             length / (double)resolution, length * sdf_trunc_percentage,
             pipelines::integration::TSDFVolumeColorType::RGB8);
