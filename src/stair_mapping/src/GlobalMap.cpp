@@ -142,7 +142,7 @@ namespace stair_mapping
 
         // since only the old data are read and never changed
         // the map building process is thread safe
-        int lastn = submap_cnt - 100;
+        int lastn = submap_cnt - 200;
 
         if (display_raw_result)
         {
@@ -173,14 +173,45 @@ namespace stair_mapping
         //    p_all_opt_points->operator+=(transformed_opt_pts);
         //}
 
-        // use tsdf integration
-        double length = 12.0;
-        double resolution = 512;
-        double sdf_trunc_percentage = 0.015;
-        pipelines::integration::ScalableTSDFVolume volume(
-            length / (double)resolution, length * sdf_trunc_percentage,
-            pipelines::integration::TSDFVolumeColorType::RGB8);
+        // use tsdf integration (Legacy)
+        // double length = 12.0;
+        // double resolution = 512;
+        // double sdf_trunc_percentage = 0.015;
+        // pipelines::integration::ScalableTSDFVolume volume(
+        //     length / (double)resolution, length * sdf_trunc_percentage,
+        //     pipelines::integration::TSDFVolumeColorType::RGB8);
 
+        // for (int i = 0; i < submap_cnt; i++)
+        // {
+        //     if (i < lastn)
+        //         continue;
+        //     Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
+        //     geometry::RGBDImage opt_rgbd_frame;
+        //     auto ret = submaps_[i]->getFirstRGBDFrame(opt_rgbd_frame);
+        //     if (!ret) continue;
+        //     auto intrinsic = submaps_[i]->getIntrinsic();
+        //     auto t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
+        //     Matrix4d extrinsic = T_m2gm_refined * t_cam_wrt_base;
+        //     // ^wp = ^wT_{b_i}' * ^bT_c * ^cp
+        //     volume.Integrate(opt_rgbd_frame, intrinsic, extrinsic.inverse());
+        // }
+        // p_all_opt_points = volume.ExtractPointCloud();
+
+        // use tsdf integration (Tensor)
+        using MaskCode = t::geometry::TSDFVoxelGrid::SurfaceMaskCode;
+        float voxel_size = 4.0f/512.0f; 
+        float depth_scale = 1.0f; 
+        float depth_max = 5.0f; 
+        float sdf_trunc = 0.06f; 
+        bool enable_raycast = true; 
+
+        std::string device_code = "CUDA:0";
+        core::Device device(device_code);
+        t::geometry::TSDFVoxelGrid voxel_grid({{"tsdf", core::Dtype::Float32},
+                                               {"weight", core::Dtype::UInt16},
+                                               {"color", core::Dtype::UInt16}},
+                                              voxel_size, sdf_trunc, 16,
+                                              2000, device);
         for (int i = 0; i < submap_cnt; i++)
         {
             if (i < lastn)
@@ -189,13 +220,29 @@ namespace stair_mapping
             geometry::RGBDImage opt_rgbd_frame;
             auto ret = submaps_[i]->getFirstRGBDFrame(opt_rgbd_frame);
             if (!ret) continue;
+            // convert rgbd to tensor
+            open3d::t::geometry::RGBDImage opt_rgbd_frame_t(
+                open3d::t::geometry::Image::FromLegacyImage(opt_rgbd_frame.color_).To(device),
+                open3d::t::geometry::Image::FromLegacyImage(opt_rgbd_frame.depth_).To(device));
+
+            // convert intrinsic to tensor
             auto intrinsic = submaps_[i]->getIntrinsic();
+            auto focal_length = intrinsic.GetFocalLength();
+            auto principal_point = intrinsic.GetPrincipalPoint();
+            core::Tensor intrinsic_t = core::Tensor::Init<double>(
+                {{focal_length.first, 0, principal_point.first},
+                 {0, focal_length.second, principal_point.second},
+                 {0, 0, 1}}).To(device);
+
+            // convert extrinsic to tensor
             auto t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
             Matrix4d extrinsic = T_m2gm_refined * t_cam_wrt_base;
+            auto extrinsic_t = core::eigen_converter::EigenMatrixToTensor((Matrix4d)extrinsic.inverse()).To(device);
             // ^wp = ^wT_{b_i}' * ^bT_c * ^cp
-            volume.Integrate(opt_rgbd_frame, intrinsic, extrinsic.inverse());
+            voxel_grid.Integrate(opt_rgbd_frame_t.depth_, opt_rgbd_frame_t.color_, intrinsic_t, extrinsic_t,
+                                 depth_scale, depth_max);
         }
-        p_all_opt_points = volume.ExtractPointCloud();
+        *p_all_opt_points = voxel_grid.ExtractSurfacePoints().ToLegacyPointCloud();
 
         // ready for calculating the distance between footholds and generated ground
         Matrix<double, 4, 6> last_tip_points;
