@@ -41,7 +41,7 @@ namespace stair_mapping
         edge_list_.push_back(edge);
     }
 
-    bool PoseGraph::solve()
+    bool PoseGraph::solve(bool useHuberLoss, double lossThresh)
     {
         if (vertex_list_.empty() ||
             edge_list_.empty())
@@ -51,9 +51,14 @@ namespace stair_mapping
         }
 
         ceres::Problem problem;
-        ceres::LossFunction *loss_function = nullptr;
         ceres::LocalParameterization *local_parameterization =
             new ceres::EigenQuaternionParameterization();
+        
+        ceres::LossFunction *loss_function = nullptr;
+        if (useHuberLoss)
+        {
+            loss_function = new ceres::HuberLoss(lossThresh);
+        }
 
         for (const auto &edge : edge_list_)
         {

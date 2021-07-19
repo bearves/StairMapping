@@ -57,6 +57,7 @@ private:
     std::vector<PtCld> frames_;
     PtCldPtr p_submap_points_;
     PtCldPtr p_cropped_submap_points_;
+    PoseGraph pg_;
 
     void updateSubmapPoints();
 

@@ -141,7 +141,7 @@ namespace stair_mapping
 
         // since only the old data are read and never changed
         // the map building process is thread safe
-        int lastn = submap_cnt - 100;
+        int lastn = submap_cnt - 140;
 
         if (display_raw_result)
         {
@@ -328,27 +328,27 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight translations
-            ifm.diagonal() << 8100, 8100, 8100, 1e-16, 1e-16, 1e-16;
+            ifm.diagonal() << 640, 640, 160, 1e-16, 1e-16, 1e-16;
             Pose3d t_edge(T_m2m_odom_[i + 1]);
-             pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
+            //pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
         }
         // edge of orientation imu constraints
         //if (submap_cnt > 0)
-        for (int i = 0; i < submap_cnt - 1; i++)
+        for (int i = 0; i < submap_cnt - 1; i+=10)
         {
             //Pose3d t_edge(T_m2gm_imu_[submap_cnt - 1]);
             Pose3d t_edge(T_m2gm_imu_[i + 1]);
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 1600, 1600, 1600;
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 90, 90, 90;
             pg_.addEdge(EDGE_TYPE::ABS_ROTATION, 0, i + 1, t_edge, ifm);
         }
 
         // solve
         try
         {
-            bool ret = pg_.solve();
+            bool ret = pg_.solve(false, 0);
         }
         catch (const std::exception &e)
         {
@@ -365,12 +365,12 @@ namespace stair_mapping
             double y_frame = T_m2gm_opt_[i](1, 3);
 
             // compensate Z drift using the distance from the origin
-            T_m2gm_compensate_[i](2, 3) = compensation_coe_ * sqrt(x_frame * x_frame + y_frame * y_frame);
-            // T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
+            // T_m2gm_compensate_[i](2, 3) = compensation_coe_ * sqrt(x_frame * x_frame + y_frame * y_frame);
+            T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
 
             // compensate X drift due to the foot shape by coe * distance_traversed
-            T_m2gm_compensate_[i](0, 3) = 0.01 * (x_frame);
-            T_m2gm_compensate_[i](1, 3) = 0.01 * (y_frame);
+            T_m2gm_compensate_[i](0, 3) = 0.02 * (x_frame);
+            T_m2gm_compensate_[i](1, 3) = 0.02 * (y_frame);
             // T_m2gm_compensate_[i](0, 3) = 0 * (x_frame);
         }
 

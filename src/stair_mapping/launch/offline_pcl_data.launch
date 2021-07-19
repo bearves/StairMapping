@@ -1,7 +1,7 @@
 <launch>
   <param name="use_sim_time" value="true"/>
 
-  <arg name="bag_file_name" value="0701/data_stairs.bag"/>
+  <arg name="bag_file_name" value="0708/new.bag"/>
   <node pkg="rosbag" type="play" name="rosbag_play" output="screen" args="--clock /home/learning/Projects/Data/$(arg bag_file_name)" />
 
   <param name="robot_description" textfile="$(find stair_mapping)/urdf/hex_mini_model.urdf" />

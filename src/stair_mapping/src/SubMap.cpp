@@ -215,7 +215,7 @@ namespace stair_mapping
             *p_input_cloud_cr, *p_target_cloud_cr,
             0.08, Eigen::Matrix4d::Identity(),
             open3d::pipelines::registration::TransformationEstimationPointToPlane(),
-            open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
+            open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 70)
         );
         auto tsfm_icp = result.transformation_;
 
@@ -244,22 +244,69 @@ namespace stair_mapping
             ROS_WARN("\nICP has not converged.\n");
             transform_result = init_guess;
         }
+        // fuse the vo result and the leg odom (aka. init guess) in frames
+        // huber loss is utilized to reduce the effect of possible large drift of vo 
+        pg_.reset();
+
+        // add vertices
+        Vertex3d v_src(Matrix4d::Identity());
+        Vertex3d v_tgt(transform_result);
+        pg_.addVertex(v_src);
+        pg_.addVertex(v_tgt);
+        // edge of submap-to-submap scan match constraints
+        Pose3d t_edge_vo(transform_result);
+        pg_.addEdge(EDGE_TYPE::TRANSFORM, 0, 1, t_edge_vo, transform_info);
+        // edge of submap-to-submap legged odom constraints
+        InfoMatrix ifm;
+        ifm.setZero();
+        ifm.diagonal() << 81, 81, 81, 20, 20, 20;
+        Pose3d t_edge_lo(init_guess);
+        pg_.addEdge(EDGE_TYPE::TRANSFORM, 0, 1, t_edge_lo, ifm);
+
+        // solve using huber loss
+        try
+        {
+            bool ret = pg_.solve(true, 0.08);
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << e.what() << '\n';
+            return false;
+        }
+
+        auto raw_transform_result = transform_result;
+        // copy out optimized results
+        transform_result = pg_.getVertices()->at(1).toMat4d();
+
         // check the error of the result and init guess
         // reject results that have super large errors
-        Eigen::Affine3d af_res(transform_result);
+        Eigen::Affine3d af_res(raw_transform_result);
         Eigen::Affine3d af_ini(init_guess);
 
         Eigen::Affine3d err = af_res * af_ini.inverse();
         double lin_err = err.translation().norm();
         double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
         ROS_INFO("Match error from guess: %lf %lf", lin_err, ang_err);
-        if (lin_err > 0.03 || 
-            ang_err > 0.04)
+        if (lin_err > 0.2 || 
+            ang_err > 0.2)
         {
             ROS_ERROR("Large match error detected: %lf %lf", lin_err, ang_err);
-            transform_result = init_guess;
+            std::cout << "Before opt:\n"
+                      << raw_transform_result << "\n";
+            std::cout << "After opt:\n"
+                      << transform_result << "\n";
+            std::cout << "Vo Info:\n"
+                      << transform_info << "\n";
+            EigenSolver<Matrix3d> eig;
+            eig.compute(transform_info.topLeftCorner(3,3), true);
+            std::cout << "Info eig values:\n"
+                      << eig.eigenvalues().real() << "\n";
+            std::cout << "Info eig vector:\n"
+                      << eig.eigenvectors().real() << "\n";
+            //transform_result = init_guess;
         }
 
+        //transform_result = init_guess;
         return result.fitness_;
     }
 
@@ -290,8 +337,6 @@ namespace stair_mapping
         double sigma = 0.01; // meter
         info_mat /= (double)pt_counts * sigma * sigma;
         
-        //EigenSolver<InfoMatrix> eig;
-        //eig.compute(info_mat, true);
 
         return info_mat;
     }
