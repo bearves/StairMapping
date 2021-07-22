@@ -53,6 +53,8 @@ private:
     PointCloudT::Ptr p_submap_points_;
     PointCloudT::Ptr p_cropped_submap_points_;
 
+    PoseGraph pg_;
+
     void updateSubmapPoints();
 
     double matchIcp(
@@ -66,6 +68,16 @@ private:
         const PointCloudT::Ptr& input_cloud,
         const PointCloudN::Ptr& normal_cloud
     );
+
+    Eigen::Matrix4d optimizeF2FMatch(
+        Eigen::Matrix4d tf_vo,
+        Eigen::Matrix4d tf_ro,
+        InfoMatrix info_vo,
+        InfoMatrix info_ro);
+
+    Eigen::Vector2d checkError(
+        Eigen::Matrix4d tf_result, 
+        Eigen::Matrix4d init_guess);
 
     InfoMatrix computeInfomation(
         const PointCloudTN::Ptr& result_cloud,

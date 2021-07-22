@@ -67,8 +67,8 @@ namespace stair_mapping
             auto &pose_begin = vertex_list_[edge.id_begin];
             auto &pose_end = vertex_list_[edge.id_end];
 
-            const Eigen::Matrix<double, 6, 6> sqrt_information =
-                edge.information.llt().matrixL();
+            const Eigen::Matrix<double, 6, 6> sqrt_information = edge.information;
+                // edge.information.llt().matrixL();
 
             // Ceres will take ownership of the pointer.
             ceres::CostFunction *cost_function = nullptr;

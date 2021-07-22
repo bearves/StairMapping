@@ -319,7 +319,7 @@ namespace stair_mapping
 
         // Compensation model:
         // c = k * weighted_dist_err
-        return -0.1 * weighted_err;
+        return -0.03 * weighted_err;
     }
 
     bool GlobalMap::runGlobalPoseOptimizer()

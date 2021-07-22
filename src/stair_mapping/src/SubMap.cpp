@@ -125,6 +125,8 @@ namespace stair_mapping
         Eigen::Matrix4d& transform_result,
         InfoMatrix& transform_info)
     {
+        using namespace Eigen;
+
         PointCloudT::Ptr p_input_cloud_init(new PointCloudT);
         PointCloudT::Ptr p_input_cloud_cr(new PointCloudT);
         PointCloudT::Ptr p_target_cloud_cr(new PointCloudT);
@@ -151,11 +153,11 @@ namespace stair_mapping
         double x_crop_min = std::max(min_input.x, min_target.x) - loose;
 
         PreProcessor::crop(p_input_cloud_init, p_input_cloud_cr, 
-            Eigen::Vector3f(x_crop_min, -0.4, z_crop_min), 
-            Eigen::Vector3f(x_crop_max, 0.4, z_crop_max));
+            Vector3f(x_crop_min, -0.4, z_crop_min), 
+            Vector3f(x_crop_max, 0.4, z_crop_max));
         PreProcessor::crop(target_cloud, p_target_cloud_cr, 
-            Eigen::Vector3f(x_crop_min, -0.4, z_crop_min), 
-            Eigen::Vector3f(x_crop_max, 0.4, z_crop_max));
+            Vector3f(x_crop_min, -0.4, z_crop_min), 
+            Vector3f(x_crop_max, 0.4, z_crop_max));
 
         if (p_input_cloud_cr->empty() || p_target_cloud_cr->empty())
         {
@@ -187,29 +189,33 @@ namespace stair_mapping
         transform_info = computeInfomation(icp_result_cloud, p_target_tn);
         ROS_INFO("Applied ICP iteration(s) in %lf ms", time.toc());
 
+        Matrix4d raw_transform_result = init_guess;
+
         if (icp.hasConverged())
         {
-            transform_result = icp.getFinalTransformation().cast<double>() * init_guess;
+            raw_transform_result = icp.getFinalTransformation().cast<double>() * init_guess;
         }
         else
         {
             ROS_WARN("\nICP has not converged.\n");
-            transform_result = init_guess;
+            raw_transform_result = init_guess;
         }
+
+        InfoMatrix info_ro = 600 * InfoMatrix::Identity();
+        transform_result = optimizeF2FMatch(raw_transform_result, init_guess, transform_info, info_ro);
+
         // check the error of the result and init guess
         // reject results that have super large errors
-        Eigen::Affine3d af_res(transform_result);
-        Eigen::Affine3d af_ini(init_guess);
-
-        Eigen::Affine3d err = af_res * af_ini.inverse();
-        double lin_err = err.translation().norm();
-        double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
-        ROS_ERROR("Match error from guess: %lf %lf", lin_err, ang_err);
-        if (lin_err > 0.03 || 
-            ang_err > 0.03)
+        auto err = checkError(transform_result, init_guess);
+        if (err(0) > 0.05 || err(1) > 0.05)
         {
-            ROS_ERROR("Large match error detected: %lf %lf", lin_err, ang_err);
-            transform_result = init_guess;
+            ROS_ERROR("Large match error detected: %lf %lf", err(0), err(1));
+            // double optimization
+            transform_result = optimizeF2FMatch(transform_result, init_guess, transform_info, info_ro);
+            err = checkError(transform_result, init_guess);
+            ROS_ERROR("Final match error: %lf %lf", err(0), err(1));
+            if (err(0) > 0.05 || err(1) > 0.05)
+                transform_result = init_guess;
         }
 
         return icp.getFitnessScore();
@@ -226,6 +232,55 @@ namespace stair_mapping
         ne.setSearchMethod(p_tree);
         ne.setKSearch(10);
         ne.compute(*normal_cloud);
+    }
+
+    Eigen::Matrix4d SubMap::optimizeF2FMatch(
+        Eigen::Matrix4d tf_vo,
+        Eigen::Matrix4d tf_ro,
+        InfoMatrix info_vo,
+        InfoMatrix info_ro)
+    {
+        using namespace Eigen;
+        pg_.reset();
+
+        // add vertices
+        Vertex3d v_src(Matrix4d::Identity());
+        Vertex3d v_tgt(tf_ro);
+        pg_.addVertex(v_src);
+        pg_.addVertex(v_tgt);
+        // edge of submap-to-submap scan match constraints
+        Pose3d t_edge_vo(tf_vo);
+        pg_.addEdge(EDGE_TYPE::TRANSFORM, 0, 1, t_edge_vo, info_vo);
+        // edge of submap-to-submap legged odom constraints
+        Pose3d t_edge_lo(tf_ro);
+        pg_.addEdge(EDGE_TYPE::TRANSFORM, 0, 1, t_edge_lo, info_ro);
+
+        // solve using huber loss
+        try
+        {
+            bool ret = pg_.solve();
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << e.what() << '\n';
+            return tf_ro;
+        }
+
+        // copy out optimized results
+        return pg_.getVertices()->at(1).toMat4d();
+    }
+
+    Eigen::Vector2d SubMap::checkError(Eigen::Matrix4d tf_result, Eigen::Matrix4d init_guess)
+    {
+        Eigen::Affine3d af_res(tf_result);
+        Eigen::Affine3d af_ini(init_guess);
+
+        Eigen::Affine3d err = af_res * af_ini.inverse();
+        double lin_err = err.translation().norm();
+        double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
+        ROS_INFO("Match error from guess: %lf %lf", lin_err, ang_err);
+
+        return {lin_err, ang_err};
     }
 
     InfoMatrix SubMap::computeInfomation(
@@ -275,9 +330,9 @@ namespace stair_mapping
         Affine3d tm_last(odom_last);
 
         // get the transform of the odoms between last frame and current frame
-        Matrix4d T_o2o = current_odom * tm_last.inverse().matrix() ;
+        Matrix4d T_o2o = tm_last.inverse().matrix() * current_odom ;
         // get the transform from submap's origin to this frame
-        return T_o2o * T_f2sm_last;
+        return T_f2sm_last * T_o2o;
     }
 
     Eigen::Matrix<double, 4, 6> SubMap::getLastTipPointsWithTransform(const Eigen::Matrix4d& tf)
