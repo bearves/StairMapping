@@ -330,18 +330,18 @@ namespace stair_mapping
             // only weight translations
             ifm.diagonal() << 640, 640, 160, 1e-16, 1e-16, 1e-16;
             Pose3d t_edge(T_m2m_odom_[i + 1]);
-            //pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
+            pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
         }
         // edge of orientation imu constraints
         //if (submap_cnt > 0)
-        for (int i = 0; i < submap_cnt - 1; i+=10)
+        for (int i = 0; i < submap_cnt - 1; i++)
         {
             //Pose3d t_edge(T_m2gm_imu_[submap_cnt - 1]);
             Pose3d t_edge(T_m2gm_imu_[i + 1]);
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 90, 90, 90;
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 900, 900, 900;
             pg_.addEdge(EDGE_TYPE::ABS_ROTATION, 0, i + 1, t_edge, ifm);
         }
 
@@ -365,8 +365,8 @@ namespace stair_mapping
             double y_frame = T_m2gm_opt_[i](1, 3);
 
             // compensate Z drift using the distance from the origin
-            // T_m2gm_compensate_[i](2, 3) = compensation_coe_ * sqrt(x_frame * x_frame + y_frame * y_frame);
-            T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
+            T_m2gm_compensate_[i](2, 3) = compensation_coe_ * sqrt(x_frame * x_frame + y_frame * y_frame);
+            // T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
 
             // compensate X drift due to the foot shape by coe * distance_traversed
             T_m2gm_compensate_[i](0, 3) = 0.02 * (x_frame);

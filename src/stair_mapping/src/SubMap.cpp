@@ -2,6 +2,7 @@
 #include <exception>
 #include <open3d/Open3D.h>
 #include "PoseGraph.h"
+#include <fstream>
 
 namespace stair_mapping
 {
@@ -215,7 +216,7 @@ namespace stair_mapping
             *p_input_cloud_cr, *p_target_cloud_cr,
             0.08, Eigen::Matrix4d::Identity(),
             open3d::pipelines::registration::TransformationEstimationPointToPlane(),
-            open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 70)
+            open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, 20)
         );
         auto tsfm_icp = result.transformation_;
 
@@ -235,33 +236,58 @@ namespace stair_mapping
                       << transform_info << std::endl;
         }
 
+        Matrix4d raw_transform_result = init_guess;
         if (result.fitness_ > 0.4)
         {
-            transform_result = t_cam_wrt_base * tsfm_icp * init_guess_cam * t_base_wrt_cam;
+            raw_transform_result = t_cam_wrt_base * tsfm_icp * init_guess_cam * t_base_wrt_cam;
         }
         else
         {
             ROS_WARN("\nICP has not converged.\n");
-            transform_result = init_guess;
+            raw_transform_result = init_guess;
         }
+
         // fuse the vo result and the leg odom (aka. init guess) in frames
         // huber loss is utilized to reduce the effect of possible large drift of vo 
+        InfoMatrix info_ro = 600 * InfoMatrix::Identity();
+        transform_result = optimizeF2FMatch(raw_transform_result, init_guess, transform_info, info_ro);
+
+        // check the error of the result and init guess
+        // reject results that have super large errors
+        auto err = checkError(transform_result, init_guess);
+
+        if (err(0) > 0.05 ||
+            err(1) > 0.05)
+        {
+            ROS_ERROR("Large match error detected: %lf %lf", err(0), err(1));
+            saveDiagnosticData(raw_transform_result, init_guess,
+                               transform_result, transform_info, info_ro,
+                               p_target_cloud_cr, p_input_cloud_cr);
+            // try optimize again towards init guess
+            transform_result = optimizeF2FMatch(transform_result, init_guess, transform_info, info_ro);
+        }
+
+        //transform_result = raw_transform_result;
+        //transform_result = init_guess;
+        return result.fitness_;
+    }
+
+    Eigen::Matrix4d SubMap::optimizeF2FMatch(Eigen::Matrix4d tf_vo, Eigen::Matrix4d tf_ro, InfoMatrix info_vo, InfoMatrix info_ro)
+    {
+        using namespace Eigen;
         pg_.reset();
 
         // add vertices
         Vertex3d v_src(Matrix4d::Identity());
-        Vertex3d v_tgt(transform_result);
+        Vertex3d v_tgt(tf_ro);
         pg_.addVertex(v_src);
         pg_.addVertex(v_tgt);
         // edge of submap-to-submap scan match constraints
-        Pose3d t_edge_vo(transform_result);
-        pg_.addEdge(EDGE_TYPE::TRANSFORM, 0, 1, t_edge_vo, transform_info);
+        Pose3d t_edge_vo(tf_vo);
+        pg_.addEdge(EDGE_TYPE::TRANSFORM, 0, 1, t_edge_vo, info_vo);
         // edge of submap-to-submap legged odom constraints
-        InfoMatrix ifm;
-        ifm.setZero();
-        ifm.diagonal() << 81, 81, 81, 20, 20, 20;
-        Pose3d t_edge_lo(init_guess);
-        pg_.addEdge(EDGE_TYPE::TRANSFORM, 0, 1, t_edge_lo, ifm);
+        Pose3d t_edge_lo(tf_ro);
+        pg_.addEdge(EDGE_TYPE::TRANSFORM, 0, 1, t_edge_lo, info_ro);
 
         // solve using huber loss
         try
@@ -271,43 +297,24 @@ namespace stair_mapping
         catch (const std::exception &e)
         {
             std::cerr << e.what() << '\n';
-            return false;
+            return tf_ro;
         }
 
-        auto raw_transform_result = transform_result;
         // copy out optimized results
-        transform_result = pg_.getVertices()->at(1).toMat4d();
+        return pg_.getVertices()->at(1).toMat4d();
+    }
 
-        // check the error of the result and init guess
-        // reject results that have super large errors
-        Eigen::Affine3d af_res(raw_transform_result);
+    Eigen::Vector2d SubMap::checkError(Eigen::Matrix4d tf_result, Eigen::Matrix4d init_guess)
+    {
+        Eigen::Affine3d af_res(tf_result);
         Eigen::Affine3d af_ini(init_guess);
 
         Eigen::Affine3d err = af_res * af_ini.inverse();
         double lin_err = err.translation().norm();
         double ang_err = Eigen::AngleAxisd(err.rotation()).angle();
         ROS_INFO("Match error from guess: %lf %lf", lin_err, ang_err);
-        if (lin_err > 0.2 || 
-            ang_err > 0.2)
-        {
-            ROS_ERROR("Large match error detected: %lf %lf", lin_err, ang_err);
-            std::cout << "Before opt:\n"
-                      << raw_transform_result << "\n";
-            std::cout << "After opt:\n"
-                      << transform_result << "\n";
-            std::cout << "Vo Info:\n"
-                      << transform_info << "\n";
-            EigenSolver<Matrix3d> eig;
-            eig.compute(transform_info.topLeftCorner(3,3), true);
-            std::cout << "Info eig values:\n"
-                      << eig.eigenvalues().real() << "\n";
-            std::cout << "Info eig vector:\n"
-                      << eig.eigenvectors().real() << "\n";
-            //transform_result = init_guess;
-        }
 
-        //transform_result = init_guess;
-        return result.fitness_;
+        return {lin_err, ang_err};
     }
 
     InfoMatrix SubMap::computeInfomation(
@@ -339,6 +346,52 @@ namespace stair_mapping
         
 
         return info_mat;
+    }
+
+    void SubMap::saveDiagnosticData(
+        const Eigen::Matrix4d& tf_vo, 
+        const Eigen::Matrix4d& tf_ro, 
+        const Eigen::Matrix4d& tf_opt,
+        const InfoMatrix& info_vo, 
+        const InfoMatrix& info_ro,
+        const PtCldPtr& p_target_cloud, 
+        const PtCldPtr& p_input_cloud )
+    {
+        static int match_count = 0;
+
+        ROS_ERROR("File saved to: %s", open3d::utility::filesystem::GetWorkingDirectory().c_str());
+        match_count++;
+        char input_cld_name[30];
+        char target_cld_name[30];
+        char match_info_name[30];
+
+        sprintf(input_cld_name, "Input_%d.ply", match_count);
+        sprintf(target_cld_name, "Target_%d.ply", match_count);
+        sprintf(match_info_name, "MatchInfo_%d.txt", match_count);
+
+        std::fstream match_info_file;
+        match_info_file.open(match_info_name, std::ios::out);
+
+        if (!match_info_file.is_open())
+            ROS_ERROR("Open file failed: %s", match_info_name);
+
+        match_info_file << "match_count:\n"
+                        << match_count << "\n";
+        match_info_file << "Ro result:\n"
+                        << tf_ro << "\n";
+        match_info_file << "Ro Info:\n"
+                        << info_ro << "\n";
+        match_info_file << "Vo result:\n"
+                        << tf_vo << "\n";
+        match_info_file << "Vo Info:\n"
+                        << info_vo << "\n";
+        match_info_file << "After opt:\n"
+                        << tf_opt << "\n";
+
+        open3d::io::WritePointCloudToPLY(target_cld_name, *p_target_cloud,
+                                         open3d::io::WritePointCloudOption(true)); // write ascii
+        open3d::io::WritePointCloudToPLY(input_cld_name, *p_input_cloud,
+                                         open3d::io::WritePointCloudOption(true)); // write ascii
     }
 
     Eigen::Matrix4d SubMap::getRelativeTfGuess(const Eigen::Matrix4d& current_odom)

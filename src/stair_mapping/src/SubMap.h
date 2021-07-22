@@ -69,6 +69,23 @@ private:
         Eigen::Matrix4d& transform_result,
         InfoMatrix& transform_info);
     
+    Eigen::Matrix4d optimizeF2FMatch(
+        Eigen::Matrix4d tf_vo, 
+        Eigen::Matrix4d tf_ro, 
+        InfoMatrix info_vo, 
+        InfoMatrix info_ro);
+
+    Eigen::Vector2d checkError(Eigen::Matrix4d tf_result, Eigen::Matrix4d init_guess);
+
+    void saveDiagnosticData(
+        const Eigen::Matrix4d& tf_vo, 
+        const Eigen::Matrix4d& tf_ro, 
+        const Eigen::Matrix4d& tf_opt,
+        const InfoMatrix& info_vo, 
+        const InfoMatrix& info_ro,
+        const PtCldPtr& p_target_cloud, 
+        const PtCldPtr& p_input_cloud );
+    
     InfoMatrix computeInfomation(
         const PtCldPtr& result_cloud,
         const PtCldPtr& target_cloud
