@@ -16,9 +16,12 @@ namespace stair_mapping
         node.param("display_process_details", display_process_details_, false);
         node.param("robot_message_version", message_version_, 2);
 
+        SubMap::PRINT_VERBOSE_INFO = display_process_details_;
+        PoseGraph::PRINT_VERBOSE_INFO = display_process_details_;
+
         imu_calibrator_.setParam(node);
-        current_imu_from_camera_mat_ = Matrix4d::Identity();
-        current_imu_from_base_mat_ = Matrix4d::Identity();
+        current_tf_of_baselink_wrt_world_ = Matrix4d::Identity();
+        current_tf_of_camera_wrt_baselink_ = Matrix4d::Identity();
         current_odom_mat_ = Matrix4d::Identity();
 
         if (display_process_details_)
@@ -54,10 +57,8 @@ namespace stair_mapping
     {
         using namespace Eigen;
         PointCloudT::Ptr p_in_cloud(new PointCloudT);
-        PointCloudT::Ptr p_tr_cloud(new PointCloudT);
         PointCloudT::Ptr p_pre_cloud(new PointCloudT);
 
-        sensor_msgs::PointCloud2 tsfm_out_cloud2;
         sensor_msgs::PointCloud2 pre_out_cloud2;
         sensor_msgs::PointCloud2 submap_out_cloud2;
 
@@ -65,35 +66,27 @@ namespace stair_mapping
 
         // transform using imu
         imu_msg_mtx_.lock();
-        Matrix4d t_imu_camera = current_imu_from_camera_mat_;
-        Matrix4d t_imu_baselink = current_imu_from_base_mat_;
+        Matrix4d T_camera_wrt_base = current_tf_of_camera_wrt_baselink_; // ^bT_c
+        Matrix4d T_base_wrt_world = current_tf_of_baselink_wrt_world_; // ^wT_b (rotation part)
         bool is_transform_ok = is_imu_transform_ok_;
         imu_msg_mtx_.unlock();
 
         // when imu transform is not ready, do nothing to point cloud data
         if (!is_transform_ok) return;
 
+        // get robot tip states
         tip_msg_mtx_.lock();
-        auto tip_states = robot_kin_.getTipPosWithTouchState(t_imu_baselink);
+        // only rotation is used
+        auto tip_states = robot_kin_.getTipPosWithTouchState(Matrix4d::Identity());
         tip_msg_mtx_.unlock();
 
-        pcl::transformPointCloud(*p_in_cloud, *p_tr_cloud, t_imu_camera);
-
-        if (display_process_details_)
-        {
-            pcl::toROSMsg(*p_tr_cloud, tsfm_out_cloud2);
-            tsfm_out_cloud2.header.frame_id = "base_world";
-            tsfm_out_cloud2.header.stamp = msg->header.stamp;
-            imu_transformed_pub_.publish(tsfm_out_cloud2);
-        }
-
         // preprocess
-        terrain_mapper_.preprocess(p_tr_cloud, p_pre_cloud);
+        terrain_mapper_.preprocess(p_in_cloud, p_pre_cloud);
 
         if (display_process_details_)
         {
             pcl::toROSMsg(*p_pre_cloud, pre_out_cloud2);
-            pre_out_cloud2.header.frame_id = "base_world";
+            pre_out_cloud2.header.frame_id = "camera_depth_optical_frame";
             pre_out_cloud2.header.stamp = msg->header.stamp;
             preprocess_pub_.publish(pre_out_cloud2);
         }
@@ -103,7 +96,7 @@ namespace stair_mapping
         odom_msg_mtx_.lock();
         Matrix4d t_frame_odom = current_odom_mat_;
         odom_msg_mtx_.unlock();
-        terrain_mapper_.matchSubmap(p_pre_cloud, p_submap_cloud, t_frame_odom, tip_states);
+        terrain_mapper_.matchSubmap(p_pre_cloud, p_submap_cloud, t_frame_odom, T_camera_wrt_base, tip_states);
 
         if (display_process_details_)
         {
@@ -119,29 +112,35 @@ namespace stair_mapping
         using namespace Eigen;
 
         auto imu_tsfm = imu_calibrator_.updateCalibratedImuTf(msg->orientation);
-        imu_tsfm.header.stamp = msg->header.stamp;
-        imu_tsfm.header.frame_id = "base_world";
-        imu_tsfm.child_frame_id = "base_link";
-        br_.sendTransform(imu_tsfm);
 
-        auto imu_tf_from_camera = imu_calibrator_.getCalibratedImuTfFromCamera();
-        auto imu_tf_from_baselink = imu_calibrator_.getCalibratedImuTfFromBaseLink();
+        auto T_base_wrt_world = imu_calibrator_.getTfOfBaselinkWrtWorld();
+        auto T_camera_wrt_base = imu_calibrator_.getTfOfCameraWrtBaseLink();
 
         imu_msg_mtx_.lock();
-        current_imu_from_camera_mat_ = imu_tf_from_camera;
-        current_imu_from_base_mat_ = imu_tf_from_baselink;
+        current_tf_of_baselink_wrt_world_ = T_base_wrt_world;
+        current_tf_of_camera_wrt_baselink_ = T_camera_wrt_base;
         is_imu_transform_ok_ = imu_calibrator_.isImuTransformReady();
         imu_msg_mtx_.unlock();
+
+        imu_tsfm.header.stamp = msg->header.stamp;
+        imu_tsfm.header.frame_id = "base_link";
+        imu_tsfm.child_frame_id = "base_world"; 
+        br_.sendTransform(imu_tsfm);
     }
 
     void Terrain3dMapperNode::odomMsgCallback(const nav_msgs::OdometryConstPtr &msg)
     {
         Eigen::Matrix4d pose_mat = getPoseMatrix(*msg);
+        imu_msg_mtx_.lock();
+        auto t_base_wrt_world = current_tf_of_baselink_wrt_world_;
+        imu_msg_mtx_.unlock();
+        // use imu's rotation with the robot odom's translation
+        pose_mat.topLeftCorner(3,3) = t_base_wrt_world.topLeftCorner(3,3);
+        publishCorrectedTf(msg->header.stamp, pose_mat);
+
         odom_msg_mtx_.lock();
         current_odom_mat_ = pose_mat;
         odom_msg_mtx_.unlock();
-
-        publishCorrectedTf(msg->header.stamp, pose_mat);
     }
 
     Eigen::Matrix4d Terrain3dMapperNode::getPoseMatrix(const nav_msgs::Odometry &odom)
@@ -257,7 +256,7 @@ namespace stair_mapping
 
         corrected_tf.header.stamp = stamp;
         corrected_tf.header.frame_id = "map";
-        corrected_tf.child_frame_id = "base_world";
+        corrected_tf.child_frame_id = "base_link";
 
         corrected_pose.header.stamp = stamp;
         corrected_pose.header.frame_id = "map";

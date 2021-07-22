@@ -35,8 +35,8 @@ namespace stair_mapping
         geometry_msgs::TransformStamped updateCalibratedImuTf(
             const geometry_msgs::Quaternion& imu_reading);
 
-        Eigen::Matrix4d getCalibratedImuTfFromCamera();
-        Eigen::Matrix4d getCalibratedImuTfFromBaseLink();
+        Eigen::Matrix4d getTfOfBaselinkWrtWorld();
+        Eigen::Matrix4d getTfOfCameraWrtBaseLink();
 
         inline bool isImuTransformReady() const { return is_imu_transform_ready_; }
 
@@ -49,6 +49,7 @@ namespace stair_mapping
 
         // transform from base_link to base_world
         Eigen::Quaterniond imu_tf_calibrated_;
+        Eigen::Matrix4d tf_cam_wrt_base_;
 
         // Custom quaternion to RPY implementation. The implementation from EIGEN lib
         // has a wrong value range for common use in the direction-heading scenario

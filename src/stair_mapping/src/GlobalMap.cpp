@@ -146,7 +146,7 @@ namespace stair_mapping
 
         // since only the old data are read and never changed
         // the map building process is thread safe
-        int lastn = submap_cnt - 100;
+        int lastn = submap_cnt - 140;
 
         if (display_raw_result)
         {
@@ -155,10 +155,12 @@ namespace stair_mapping
                 if (i < lastn)
                     continue;
 
+                auto t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
+                // ^wp = ^wT_{b_i}' * ^bT_c * ^cp
                 pcl::transformPointCloud(
                     *(submaps_[i]->getSubmapPoints()),
                     transformed_raw_frame,
-                    T_m2gm_raw_[i]);
+                    T_m2gm_raw_[i] * t_cam_wrt_base);
                 p_all_raw_points->operator+=(transformed_raw_frame);
             }
         }
@@ -171,10 +173,13 @@ namespace stair_mapping
             if (i < lastn)
                 continue;
             Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
+
+            auto t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
+            // ^wp = ^wT_{b_i}' * ^bT_c * ^cp
             pcl::transformPointCloud(
                 *submaps_[i]->getCroppedSubmapPoints(),
                 transformed_opt_frame,
-                T_m2gm_refined);
+                T_m2gm_refined * t_cam_wrt_base);
             p_all_opt_points->operator+=(transformed_opt_frame);
         }
 
@@ -271,17 +276,6 @@ namespace stair_mapping
                     }
                 }
                 *ground_patch += *ground_under_foot;
-
-                //std::cout << "-----------------------------" << '\n';
-                //std::cout << "Tip points: " << last_tip_points.col(i).transpose() << "\n";
-                //for(int j = 0; j < center_list[i].size(); j++)
-                //{
-                //    std::cout << "Hit boxes: (" <<
-                //        center_list[i][j].x << "," <<
-                //        center_list[i][j].y << "," <<
-                //        center_list[i][j].z << ")" << "\n";
-                //}
-                //std::cout << "-----------------------------" << '\n';
             }
         }
     }
@@ -294,7 +288,7 @@ namespace stair_mapping
         using namespace Eigen;
 
         int last_id = submap_count - 1;
-        Matrix4d T_m2gm_last = T_m2gm_compensate_[last_id] * T_m2gm_opt_[last_id];
+        //Matrix4d T_m2gm_last = T_m2gm_compensate_[last_id] * T_m2gm_opt_[last_id];
 
         // calculate compensation to reduce the dist
         // firstly we calculate the weighted average distance error as
@@ -304,14 +298,15 @@ namespace stair_mapping
         // where x0 = body_center + vision_distance
         int valid_cnt = 0;
         double err_sum = 0;
-        double x0 = Affine3d(T_m2gm_last).translation().x() + 1.5;
+        //double x0 = Affine3d(T_m2gm_last).translation().x() + 1.5;
 
         for (int i = 0; i < 6; i++)
         {
-            if (fabs(distance[i]) > 1) // reject distances too large
+            if (fabs(distance[i]) > 0.1) // reject distances too large
                 continue;
             Vector3d foothold = last_tip_points.col(i).topRows(3);
-            err_sum += (x0 - foothold.x()) * distance[i];
+            //err_sum += (x0 - foothold.x()) * distance[i];
+            err_sum += distance[i];
             valid_cnt++;
         }
 
@@ -356,7 +351,7 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight translations
-            ifm.diagonal() << 3600, 3600, 3600, 1e-16, 1e-16, 1e-16;
+            ifm.diagonal() << 640, 640, 160, 1e-16, 1e-16, 1e-16;
             Pose3d t_edge(T_m2m_odom_[i + 1]);
              pg_.addEdge(EDGE_TYPE::TRANSLATION, i, i + 1, t_edge, ifm);
         }
@@ -369,14 +364,14 @@ namespace stair_mapping
             InfoMatrix ifm;
             ifm.setZero();
             // only weight orientations
-            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 100, 100, 100;
+            ifm.diagonal() << 1e-16, 1e-16, 1e-16, 800, 800, 800;
             pg_.addEdge(EDGE_TYPE::ABS_ROTATION, 0, i + 1, t_edge, ifm);
         }
 
         // solve
         try
         {
-            bool ret = pg_.solve();
+            bool ret = pg_.solve(false, 0);
         }
         catch (const std::exception &e)
         {
@@ -397,7 +392,8 @@ namespace stair_mapping
             // T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
 
             // compensate X drift due to the foot shape by coe * distance_traversed
-            T_m2gm_compensate_[i](0, 3) = 0.05 * (x_frame);
+            T_m2gm_compensate_[i](0, 3) = 0.02 * (x_frame);
+            T_m2gm_compensate_[i](1, 3) = 0.02 * (y_frame);
             //T_m2gm_compensate_[i](0, 3) = 0 * (x_frame);
         }
 

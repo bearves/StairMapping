@@ -28,8 +28,8 @@ namespace stair_mapping
         auto ori = msg->pose.orientation;
         Translation3d t(pos.x, pos.y, pos.z);
         Quaterniond q(ori.w, ori.x, ori.y, ori.z);
-        Affine3d pose = t * q;
-        // transform global 3d map points to the body cs
+        Affine3d pose = t * q.Identity(); // aligned to ground
+        // transform global 3d map points to the body cs (aligned to ground for hole filling)
         PointCloudT::Ptr local_map(new PointCloudT);
         PointCloudT::Ptr height_map(new PointCloudT);
         mtx_.lock();
@@ -61,12 +61,11 @@ namespace stair_mapping
         double stair_height = 0.131;
         double stair_length = 0.25;
         double stair_width = 1.2;
-        double stairx0 = 3.25;
+        double stairx0 = 1.5;
         double offsetz = -0.36;
-        int stair_cnt = 1;
+        int stair_cnt = 9;
 
         ground_truth_->clear();
-
 
         double resolution = 0.01;
         for (int i = -400; i < 300; i++)
@@ -84,7 +83,7 @@ namespace stair_mapping
                     // ground
                     pt.z = 0;
                 }
-                else if (d / stair_length > stair_cnt)
+                else if (d / stair_length >= stair_cnt)
                 {
                     // up ground
                     pt.z = stair_cnt * stair_height;

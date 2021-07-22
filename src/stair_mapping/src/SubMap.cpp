@@ -7,10 +7,13 @@
 #include <pcl/common/common.h>
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/search/kdtree.h>
+#include <pcl/io/ply_io.h>
 #include "PoseGraph.h"
+#include <fstream>
 
 namespace stair_mapping
 {
+    bool SubMap::PRINT_VERBOSE_INFO = false;
 
     SubMap::SubMap(int max_stored_pcl_count):
         max_stored_frame_count_(max_stored_pcl_count),
@@ -26,15 +29,18 @@ namespace stair_mapping
         T_f2sm_.clear();
         frames_.clear();
         T_odom_.clear();
+        T_cam_wrt_base_.clear();
     }
 
     void SubMap::addFrame(PointCloudT frame, 
-        Eigen::Matrix4d t_f2sm, 
-        Eigen::Matrix4d t_frame_odom,
+        const Eigen::Matrix4d& t_f2sm, 
+        const Eigen::Matrix4d& t_frame_odom,
+        const Eigen::Matrix4d& t_cam_wrt_base,
         const Eigen::Matrix<double, 4, 6>& tip_states)
     {
         frames_.push_back(frame);
-        T_f2sm_.push_back(t_f2sm);
+        T_f2sm_.push_back(t_f2sm); // ^{b_{i-1}}T_{b_i}
+        T_cam_wrt_base_.push_back(t_cam_wrt_base);
         T_odom_.push_back(t_frame_odom);
         tip_states_.push_back(tip_states);
         
@@ -62,7 +68,12 @@ namespace stair_mapping
         // add all frame points to submap
         for(int i = 0; i < current_count_; i++)
         {
-            pcl::transformPointCloud(frames_[i], transformed_frame, T_f2sm_[i]);
+            // Transform existed frame points to the submap's origin wrt camera local coordinate,
+            // In this way, the icp matching can be conducted between current submap points 
+            // and the next key frame.
+            Matrix4d T_base_wrt_cam = Affine3d(T_cam_wrt_base_[i]).inverse().matrix();
+            Matrix4d T_f2sm_wrt_cam = T_base_wrt_cam * T_f2sm_[i] * T_cam_wrt_base_[i];
+            pcl::transformPointCloud(frames_[i], transformed_frame, T_f2sm_wrt_cam);
             p_all_points->operator+=( transformed_frame );
         }
         *p_submap_points_ = *p_all_points;
@@ -71,13 +82,14 @@ namespace stair_mapping
         PreProcessor::crop(
             p_submap_points_,
             p_cropped_submap_points_,
-            Vector3f(0, -0.5, -2),
-            Vector3f(1.5, 0.5, 0.4));
+            Vector3f(-0.5, -2, 0),
+            Vector3f(0.5, 2, 1.5));
     }
 
     double SubMap::match(
         const PointCloudT::Ptr& frame, 
         const Eigen::Matrix4d& init_guess, 
+        const Eigen::Matrix4d& t_cam_wrt_base, 
         Eigen::Matrix4d& t_match_result,
         InfoMatrix& info_match_result)
     {
@@ -102,17 +114,22 @@ namespace stair_mapping
                 frame, 
                 p_submap_points_, 
                 init_guess, 
+                t_cam_wrt_base,
                 t_match_result,
                 info_match_result);
 
-#if VERBOSE_INFO
-            std::cout << "Score:" << score << std::endl;
-            std::cout << "Init guess:\n" << init_guess << std::endl;
-            std::cout << "Registration result:\n" << t_match_result << std::endl;
-            std::cout << "Info matrix eig:\n" << info_match_result.eigenvalues().real() << std::endl;
-            std::cout << "Tranlate matrix eig:\n" << info_match_result.topLeftCorner(3,3).eigenvalues().real() << std::endl;
-#endif
-
+            if (SubMap::PRINT_VERBOSE_INFO)
+            {
+                std::cout << "Score:" << score << std::endl;
+                std::cout << "Init guess:\n"
+                          << init_guess << std::endl;
+                std::cout << "Registration result:\n"
+                          << t_match_result << std::endl;
+                std::cout << "Info matrix eig:\n"
+                          << info_match_result.eigenvalues().real() << std::endl;
+                std::cout << "Tranlate matrix eig:\n"
+                          << info_match_result.topLeftCorner(3, 3).eigenvalues().real() << std::endl;
+            }
             // t_match_result = init_guess;
             return score; // best score
         }
@@ -122,10 +139,15 @@ namespace stair_mapping
         const PointCloudT::Ptr& input_cloud, 
         const PointCloudT::Ptr& target_cloud, 
         const Eigen::Matrix4d& init_guess, 
+        const Eigen::Matrix4d& t_cam_wrt_base, 
         Eigen::Matrix4d& transform_result,
         InfoMatrix& transform_info)
     {
         using namespace Eigen;
+
+        auto t_base_wrt_cam = Affine3d(t_cam_wrt_base).inverse().matrix();
+        // the transform guess in the camera's local frame
+        auto init_guess_cam = t_base_wrt_cam * init_guess * t_cam_wrt_base;
 
         PointCloudT::Ptr p_input_cloud_init(new PointCloudT);
         PointCloudT::Ptr p_input_cloud_cr(new PointCloudT);
@@ -137,7 +159,7 @@ namespace stair_mapping
 
         // firstly transform the input cloud with init_guess to 
         // make the two clouds overlap as much as possible
-        pcl::transformPointCloud(*input_cloud, *p_input_cloud_init, init_guess);
+        pcl::transformPointCloud(*input_cloud, *p_input_cloud_init, init_guess_cam);
 
         // since the stairs are very similar structures
         // crop on Z and X axis to avoid the stair-jumping mismatch
@@ -149,15 +171,17 @@ namespace stair_mapping
         double loose = 0.1;
         double z_crop_max = std::min(max_input.z, max_target.z) + loose;
         double z_crop_min = std::max(min_input.z, min_target.z) - loose;
+        double y_crop_max = std::min(max_input.y, max_target.y) + loose;
+        double y_crop_min = std::max(min_input.y, min_target.y) - loose;
         double x_crop_max = std::min(max_input.x, max_target.x) + loose;
         double x_crop_min = std::max(min_input.x, min_target.x) - loose;
 
         PreProcessor::crop(p_input_cloud_init, p_input_cloud_cr, 
-            Vector3f(x_crop_min, -0.4, z_crop_min), 
-            Vector3f(x_crop_max, 0.4, z_crop_max));
+            Vector3f(x_crop_min, y_crop_min, z_crop_min), 
+            Vector3f(x_crop_max, y_crop_max, z_crop_max));
         PreProcessor::crop(target_cloud, p_target_cloud_cr, 
-            Vector3f(x_crop_min, -0.4, z_crop_min), 
-            Vector3f(x_crop_max, 0.4, z_crop_max));
+            Vector3f(x_crop_min, y_crop_min, z_crop_min), 
+            Vector3f(x_crop_max, y_crop_max, z_crop_max));
 
         if (p_input_cloud_cr->empty() || p_target_cloud_cr->empty())
         {
@@ -186,14 +210,27 @@ namespace stair_mapping
         icp.setInputTarget(p_target_tn);
 
         icp.align(*icp_result_cloud);
+        auto tsfm_icp = icp.getFinalTransformation().cast<double>() * init_guess;
+
+        // info mat computation: firstly transform to base coordinate
+        pcl::transformPointCloudWithNormals(icp_result_cloud, icp_result_cloud, t_cam_wrt_base);
+        pcl::transformPointCloudWithNormals(p_target_tn, p_target_tn, t_cam_wrt_base);
+
         transform_info = computeInfomation(icp_result_cloud, p_target_tn);
         ROS_INFO("Applied ICP iteration(s) in %lf ms", time.toc());
+
+        if (transform_info.hasNaN())
+        {
+            ROS_ERROR("INVALID INFO MAT");
+            std::cout << "Info matrix 2:\n"
+                      << transform_info << std::endl;
+        }
 
         Matrix4d raw_transform_result = init_guess;
 
         if (icp.hasConverged())
         {
-            raw_transform_result = icp.getFinalTransformation().cast<double>() * init_guess;
+            raw_transform_result = t_cam_wrt_base * tsfm_icp * init_guess_cam * t_base_wrt_cam;
         }
         else
         {
@@ -210,7 +247,10 @@ namespace stair_mapping
         if (err(0) > 0.05 || err(1) > 0.05)
         {
             ROS_ERROR("Large match error detected: %lf %lf", err(0), err(1));
-            // double optimization
+            saveDiagnosticData(raw_transform_result, init_guess,
+                               transform_result, transform_info, info_ro,
+                               p_target_cloud_cr, p_input_cloud_cr);
+            // try optimize again towards init guess
             transform_result = optimizeF2FMatch(transform_result, init_guess, transform_info, info_ro);
             err = checkError(transform_result, init_guess);
             ROS_ERROR("Final match error: %lf %lf", err(0), err(1));
@@ -258,7 +298,7 @@ namespace stair_mapping
         // solve using huber loss
         try
         {
-            bool ret = pg_.solve();
+            bool ret = pg_.solve(true, 0.08);
         }
         catch (const std::exception &e)
         {
@@ -310,10 +350,50 @@ namespace stair_mapping
         double sigma = 0.01; // meter
         info_mat /= (double)pt_counts * sigma * sigma;
         
-        //EigenSolver<InfoMatrix> eig;
-        //eig.compute(info_mat, true);
-
         return info_mat;
+    }
+
+    void SubMap::saveDiagnosticData(
+        const Eigen::Matrix4d& tf_vo, 
+        const Eigen::Matrix4d& tf_ro, 
+        const Eigen::Matrix4d& tf_opt,
+        const InfoMatrix& info_vo, 
+        const InfoMatrix& info_ro,
+        const PointCloudT::Ptr& p_target_cloud, 
+        const PointCloudT::Ptr& p_input_cloud )
+    {
+        static int match_count = 0;
+
+        match_count++;
+        char input_cld_name[30];
+        char target_cld_name[30];
+        char match_info_name[30];
+
+        sprintf(input_cld_name, "Input_%d.ply", match_count);
+        sprintf(target_cld_name, "Target_%d.ply", match_count);
+        sprintf(match_info_name, "MatchInfo_%d.txt", match_count);
+
+        std::fstream match_info_file;
+        match_info_file.open(match_info_name, std::ios::out);
+
+        if (!match_info_file.is_open())
+            ROS_ERROR("Open file failed: %s", match_info_name);
+
+        match_info_file << "match_count:\n"
+                        << match_count << "\n";
+        match_info_file << "Ro result:\n"
+                        << tf_ro << "\n";
+        match_info_file << "Ro Info:\n"
+                        << info_ro << "\n";
+        match_info_file << "Vo result:\n"
+                        << tf_vo << "\n";
+        match_info_file << "Vo Info:\n"
+                        << info_vo << "\n";
+        match_info_file << "After opt:\n"
+                        << tf_opt << "\n";
+
+        pcl::io::savePLYFileASCII(target_cld_name, *p_target_cloud);
+        pcl::io::savePLYFileASCII(input_cld_name, *p_input_cloud);
     }
 
     Eigen::Matrix4d SubMap::getRelativeTfGuess(const Eigen::Matrix4d& current_odom)
@@ -360,5 +440,10 @@ namespace stair_mapping
     const PointCloudT::Ptr SubMap::getCroppedSubmapPoints()
     {
         return this->p_cropped_submap_points_;
+    }
+
+    Eigen::Matrix4d SubMap::getSubmapTfCamWrtBase()
+    {
+        return this->T_cam_wrt_base_.at(0);
     }
 }

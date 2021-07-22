@@ -52,9 +52,11 @@ public:
         const Pose3d t_edge, 
         const InfoMatrix info_mat = InfoMatrix::Identity());
 
-    bool solve();
+    bool solve(bool useHuberLoss, double lossThresh);
 
     const std::vector<Vertex3d>* const getVertices();
+
+    static bool PRINT_VERBOSE_INFO;
 
 private:
     std::vector<Vertex3d> vertex_list_;

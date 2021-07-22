@@ -16,6 +16,7 @@ namespace stair_mapping
             const PointCloudT::Ptr &p_in_cloud,
             PointCloudT::Ptr &p_out_cloud,
             const Eigen::Matrix4d &t_frame_odom,
+            const Eigen::Matrix4d &t_cam_wrt_base,
             const Eigen::Matrix<double, 4, 6> &tip_states);
 
         void buildGlobalMap(bool display_raw_result);

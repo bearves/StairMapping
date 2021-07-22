@@ -87,6 +87,7 @@ namespace stair_mapping
         is_first_imu_msg_ = true;
         is_imu_transform_ready_ = false;
         imu_calibrate_.setZero();
+        tf_cam_wrt_base_ = Eigen::Matrix4d::Identity();
     }
 
     void ImuCalibrator::setParam(ros::NodeHandle &node)
@@ -104,9 +105,6 @@ namespace stair_mapping
 
         geometry_msgs::TransformStamped imu_tsfm;
 
-        imu_tsfm.transform.translation.x = 0;
-        imu_tsfm.transform.translation.y = 0;
-        imu_tsfm.transform.translation.z = 0;
         Quaterniond q_imu, q_body, q_corrected;
         q_imu.w() = imu_reading.w;
         q_imu.x() = imu_reading.x;
@@ -133,42 +131,53 @@ namespace stair_mapping
         AngleAxisd rot_z0(AngleAxisd(-yaw_start_, Vector3d::UnitZ()));
         q_corrected = rot_z0 * q_body;
 
-        imu_tsfm.transform.rotation.x = q_corrected.x();
-        imu_tsfm.transform.rotation.y = q_corrected.y();
-        imu_tsfm.transform.rotation.z = q_corrected.z();
-        imu_tsfm.transform.rotation.w = q_corrected.w();
+        imu_tsfm.transform.translation.x = 0;
+        imu_tsfm.transform.translation.y = 0;
+        imu_tsfm.transform.translation.z = 0;
+        imu_tsfm.transform.rotation.x = q_corrected.inverse().x();
+        imu_tsfm.transform.rotation.y = q_corrected.inverse().y();
+        imu_tsfm.transform.rotation.z = q_corrected.inverse().z();
+        imu_tsfm.transform.rotation.w = q_corrected.inverse().w();
 
         imu_tf_calibrated_ = q_corrected;
 
         return imu_tsfm;
     }
 
-    Eigen::Matrix4d ImuCalibrator::getCalibratedImuTfFromBaseLink()
+    // ^wT_b_i = ^wT_I_i * ^IT_b
+    Eigen::Matrix4d ImuCalibrator::getTfOfBaselinkWrtWorld()
     {
         return Eigen::Affine3d(imu_tf_calibrated_).matrix();
     }
 
-    Eigen::Matrix4d ImuCalibrator::getCalibratedImuTfFromCamera()
+    // ^bT_c
+    Eigen::Matrix4d ImuCalibrator::getTfOfCameraWrtBaseLink()
     {
         static tf2_ros::Buffer buffer;
         static tf2_ros::TransformListener lsner(buffer);
+
+        // if ready, directly use the tf_cam_wrt_base_,
+        // no need to lookup the tf tree to save time
+        if (is_imu_transform_ready_)
+            return tf_cam_wrt_base_;
+
+        // if not ready, lookup the transform published in the tf tree
         geometry_msgs::TransformStamped tf_camera_to_body;
-        Eigen::Matrix4d imu_tf_from_camera = Eigen::Matrix4d::Identity();
+        Eigen::Matrix4d tm = Eigen::Matrix4d::Identity();
         try
         {
             tf_camera_to_body = buffer.lookupTransform("base_link", "camera_depth_optical_frame", ros::Time(0));
-            Eigen::Matrix4f tm;
-            pcl_ros::transformAsMatrix(tf_camera_to_body.transform, tm);
+            tm = tf2::transformToEigen(tf_camera_to_body).matrix();
 
-            imu_tf_from_camera = Eigen::Affine3d(imu_tf_calibrated_).matrix() * tm.cast<double>();
             is_imu_transform_ready_ = true;
+            tf_cam_wrt_base_ = tm;
         }
         catch (tf2::TransformException &ex)
         {
             ROS_WARN("%s", ex.what());
         }
 
-        return imu_tf_from_camera;
+        return tf_cam_wrt_base_;
     }
 
     Eigen::Vector3d ImuCalibrator::quatToEulerAngle(Eigen::Quaterniond data)

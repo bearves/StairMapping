@@ -53,9 +53,9 @@ namespace stair_mapping
         std::mutex imu_msg_mtx_;
         std::mutex tip_msg_mtx_;
 
-        Eigen::Matrix4d current_odom_mat_;
-        Eigen::Matrix4d current_imu_from_camera_mat_;
-        Eigen::Matrix4d current_imu_from_base_mat_;
+        Eigen::Matrix4d current_odom_mat_; // ^wT_b_i
+        Eigen::Matrix4d current_tf_of_baselink_wrt_world_;  // ^wT_b_i (rotation part)
+        Eigen::Matrix4d current_tf_of_camera_wrt_baselink_; // ^bT_c
         bool is_imu_transform_ok_{false};
 
         Terrain3dMapper terrain_mapper_;
