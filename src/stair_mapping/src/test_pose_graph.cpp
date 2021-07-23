@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 
     try
     {
-        bool ret = pg.solve();
+        bool ret = pg.solve(false, 0);
     }
     catch (std::runtime_error& ex)
     {

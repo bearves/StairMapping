@@ -79,7 +79,6 @@ namespace stair_mapping
             translation_guess.norm() < 0.01 &&
             AngleAxisd(rotation_guess).angle() < 0.01)
         {
-            ROS_WARN("Frame too close: %f", translation_guess.norm());
             ROS_WARN("Frame too close t:%lf r:%lf", translation_guess.norm(), AngleAxisd(rotation_guess).angle());
             return;
         }

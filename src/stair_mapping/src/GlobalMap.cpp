@@ -155,12 +155,13 @@ namespace stair_mapping
                 if (i < lastn)
                     continue;
 
-                auto t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
+                Matrix4d t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
                 // ^wp = ^wT_{b_i}' * ^bT_c * ^cp
                 pcl::transformPointCloud(
                     *(submaps_[i]->getSubmapPoints()),
                     transformed_raw_frame,
-                    T_m2gm_raw_[i] * t_cam_wrt_base);
+                    (T_m2gm_raw_[i] * t_cam_wrt_base).cast<float>());
+                
                 p_all_raw_points->operator+=(transformed_raw_frame);
             }
         }
@@ -174,12 +175,12 @@ namespace stair_mapping
                 continue;
             Matrix4d T_m2gm_refined = T_m2gm_compensate_[i] * T_m2gm_opt_[i];
 
-            auto t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
+            Matrix4d t_cam_wrt_base = submaps_[i]->getSubmapTfCamWrtBase();
             // ^wp = ^wT_{b_i}' * ^bT_c * ^cp
             pcl::transformPointCloud(
                 *submaps_[i]->getCroppedSubmapPoints(),
                 transformed_opt_frame,
-                T_m2gm_refined * t_cam_wrt_base);
+                (T_m2gm_refined * t_cam_wrt_base).cast<float>());
             p_all_opt_points->operator+=(transformed_opt_frame);
         }
 
@@ -392,8 +393,8 @@ namespace stair_mapping
             // T_m2gm_compensate_[i](2, 3) = 0 * sqrt(x_frame * x_frame + y_frame * y_frame);
 
             // compensate X drift due to the foot shape by coe * distance_traversed
-            T_m2gm_compensate_[i](0, 3) = 0.02 * (x_frame);
-            T_m2gm_compensate_[i](1, 3) = 0.02 * (y_frame);
+            T_m2gm_compensate_[i](0, 3) = 0.01 * (x_frame);
+            T_m2gm_compensate_[i](1, 3) = 0.01 * (y_frame);
             //T_m2gm_compensate_[i](0, 3) = 0 * (x_frame);
         }
 

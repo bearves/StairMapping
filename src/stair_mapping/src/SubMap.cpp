@@ -145,9 +145,9 @@ namespace stair_mapping
     {
         using namespace Eigen;
 
-        auto t_base_wrt_cam = Affine3d(t_cam_wrt_base).inverse().matrix();
+        Matrix4d t_base_wrt_cam = Affine3d(t_cam_wrt_base).inverse().matrix();
         // the transform guess in the camera's local frame
-        auto init_guess_cam = t_base_wrt_cam * init_guess * t_cam_wrt_base;
+        Matrix4d init_guess_cam = t_base_wrt_cam * init_guess * t_cam_wrt_base;
 
         PointCloudT::Ptr p_input_cloud_init(new PointCloudT);
         PointCloudT::Ptr p_input_cloud_cr(new PointCloudT);
@@ -156,6 +156,7 @@ namespace stair_mapping
         PointCloudN::Ptr p_target_normal_cr(new PointCloudN);
         PointCloudTN::Ptr p_input_tn(new PointCloudTN);
         PointCloudTN::Ptr p_target_tn(new PointCloudTN);
+        PointCloudTN::Ptr p_target_tn_wrt_base(new PointCloudTN);
 
         // firstly transform the input cloud with init_guess to 
         // make the two clouds overlap as much as possible
@@ -202,6 +203,7 @@ namespace stair_mapping
         pcl::IterativeClosestPointWithNormals<PointTN, PointTN> icp;
 
         PointCloudTN::Ptr icp_result_cloud(new PointCloudTN);
+        PointCloudTN::Ptr icp_result_wrt_base(new PointCloudTN);
         icp.setMaximumIterations(20);
         icp.setMaxCorrespondenceDistance(0.08);
         icp.setTransformationEpsilon(1e-6);
@@ -210,13 +212,13 @@ namespace stair_mapping
         icp.setInputTarget(p_target_tn);
 
         icp.align(*icp_result_cloud);
-        auto tsfm_icp = icp.getFinalTransformation().cast<double>() * init_guess;
+        Matrix4d tsfm_icp = icp.getFinalTransformation().cast<double>();
 
         // info mat computation: firstly transform to base coordinate
-        pcl::transformPointCloudWithNormals(icp_result_cloud, icp_result_cloud, t_cam_wrt_base);
-        pcl::transformPointCloudWithNormals(p_target_tn, p_target_tn, t_cam_wrt_base);
+        pcl::transformPointCloudWithNormals(*icp_result_cloud, *icp_result_wrt_base, t_cam_wrt_base);
+        pcl::transformPointCloudWithNormals(*p_target_tn, *p_target_tn_wrt_base, t_cam_wrt_base);
 
-        transform_info = computeInfomation(icp_result_cloud, p_target_tn);
+        transform_info = computeInfomation(icp_result_wrt_base, p_target_tn_wrt_base);
         ROS_INFO("Applied ICP iteration(s) in %lf ms", time.toc());
 
         if (transform_info.hasNaN())
@@ -238,7 +240,7 @@ namespace stair_mapping
             raw_transform_result = init_guess;
         }
 
-        InfoMatrix info_ro = 600 * InfoMatrix::Identity();
+        InfoMatrix info_ro = 100 * InfoMatrix::Identity();
         transform_result = optimizeF2FMatch(raw_transform_result, init_guess, transform_info, info_ro);
 
         // check the error of the result and init guess
@@ -247,9 +249,13 @@ namespace stair_mapping
         if (err(0) > 0.05 || err(1) > 0.05)
         {
             ROS_ERROR("Large match error detected: %lf %lf", err(0), err(1));
-            saveDiagnosticData(raw_transform_result, init_guess,
-                               transform_result, transform_info, info_ro,
-                               p_target_cloud_cr, p_input_cloud_cr);
+
+            if (PRINT_VERBOSE_INFO)
+            {
+                saveDiagnosticData(raw_transform_result, init_guess,
+                                   transform_result, transform_info, info_ro,
+                                   p_target_cloud_cr, p_input_cloud_cr);
+            }
             // try optimize again towards init guess
             transform_result = optimizeF2FMatch(transform_result, init_guess, transform_info, info_ro);
             err = checkError(transform_result, init_guess);
@@ -281,6 +287,7 @@ namespace stair_mapping
         InfoMatrix info_ro)
     {
         using namespace Eigen;
+
         pg_.reset();
 
         // add vertices
